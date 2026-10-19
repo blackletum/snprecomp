@@ -1,0 +1,20 @@
+# N64Recomp config for this project's own patches (patches/*.c, compiled for
+# MIPS by patches/Makefile into patches.elf). Separate from snp.jp.toml,
+# which recompiles the game from the ROM: patches.elf is our own object
+# code, so N64Recomp reads it as an ELF.
+
+[input]
+# Paths are relative to the location of this config file.
+elf_path = "patches/patches.elf"
+output_func_path = "RecompiledPatches"
+single_file_output = true
+# Allow absolute symbols (syms.ld's 0x8F0000xx dummy addresses) to be used
+# as jump targets, so calls to native runtime functions resolve.
+use_absolute_symbols = true
+# Resolve calls into the game's own functions by name against the same
+# symbol table the main recompile uses.
+func_reference_syms_file = "SnPSyms/snp.jp.syms.toml"
+output_binary_path = "patches/patches.bin"
+# clang emits many unpaired LO16 relocations for this kind of freestanding
+# MIPS code; they're expected here.
+unpaired_lo16_warnings = false

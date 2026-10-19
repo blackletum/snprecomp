@@ -1,0 +1,9 @@
+vrom,address,name,file,length,hash of top bits of words,functions called by this function,non-jal function calls,referenced functions
+0x06D250,0x800E4780,func_800E4780,,0x10C,9ea36acee46fca103a4cf46bd3860fce,[func_80039E44],[],[]
+0x06D35C,0x800E488C,func_800E488C,,0x1E8,a8d35f084d9527adac92249be6cfd540,[],[],[]
+0x06D544,0x800E4A74,func_800E4A74,,0x180,b11a49d8d095d3417d1fbccf672860b6,[func_800E488C;func_800E488C;func_800E488C;func_800E488C;func_8003719C;func_8003719C;func_80036ADC],[],[]
+0x06D6C4,0x800E4BF4,func_800E4BF4,,0x180,aa0d4f1952901890ba72f13e21a07bd8,[func_800E488C;func_800E488C;func_800E488C;func_800E488C;func_8003719C;func_8003719C;func_80036ADC],[],[]
+0x06D844,0x800E4D74,func_800E4D74,,0xE0,7c3a77c4a1eff23b0bb43b8d3ccfd33a,[func_800E4A74;func_800E4BF4;func_800E4A74;func_800E4BF4],[],[]
+0x06D924,0x800E4E54,func_800E4E54,,0x10,68ea54317054f144f4f12f1de6c5fbbb,[],[],[]
+0x06D934,0x800E4E64,func_800E4E64,,0x14,388ec49c7ba4905fe4c2cba0c4fb7fbf,[],[],[]
+0x06D948,0x800E4E78,func_800E4E78,,0xF8,163029d17c8f837d3b318deace80a360,[func_800265DC;func_800A8E1C;func_800B4EE0;func_80026A04;func_80038214;func_80039E44;func_80038114],[],[func_800E4780;func_800E4E64;func_800E4D74;func_800E4E54]

@@ -1,0 +1,21 @@
+# Sin and Punishment's RSP audio microcode (n_aspMain), recompiled by
+# N64Recomp's RSPRecomp. See STATUS.md round 1.
+#
+# Located from the game's own audio-task setup: func_80052064 passes ucode
+# text 0x80056F50 / data 0x80062590. ROM offset = vram - 0x80024C00.
+# The same build as BattleTanx: Global Assault's (btgarecomp, same 0xC60
+# size and an identical command dispatch table), so the indirect branch
+# targets below are the ones found there.
+text_offset = 0x32350
+text_size = 0xC60
+text_address = 0x04001080
+rom_file_path = "Tsumi to Batsu - Hoshi no Keishousha (Japan).z64"
+output_file_path = "rsp/n_aspMain.cpp"
+output_function_name = "n_aspMain"
+extra_indirect_branch_targets = [
+    # command dispatch table, the first 16 halfwords of the ucode data
+    # (0x80062590). Two slots are 0 (unused commands). Command 0x0E's entry
+    # 0x02B0 is IMEM 0x12B0 (the RSP PC is 12 bits).
+    0x10EC, 0x139C, 0x119C, 0x1A64, 0x11C8, 0x17EC, 0x1208, 0x127C, 0x1348, 0x1248, 0x1C84, 0x12D4, 0x1384,
+    0x12B0
+]

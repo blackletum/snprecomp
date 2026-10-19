@@ -1,0 +1,23 @@
+#ifndef __SNP_CONFIG_H__
+#define __SNP_CONFIG_H__
+
+#include "librecomp/config.hpp"
+
+// Game-specific options, shown on the General tab (src/main/game_config.cpp).
+namespace snp::config {
+    // Adds this game's options to the General tab. Call between
+    // recompui::config::create_general_tab() and recompui::config::finalize().
+    void add_general_options(recomp::config::Config& general);
+
+    bool get_rumble_pak();
+}
+
+// Widescreen (src/game/widescreen.cpp): how much wider than 4:3 RT64 is
+// drawing full-width 3D views -- the window aspect / (4/3) in Expand mode,
+// 1 otherwise. Updated by the frontend every frame.
+namespace snp {
+    void set_widescreen_scale(float scale);
+    float get_widescreen_scale();
+}
+
+#endif

@@ -1,0 +1,51 @@
+# N64Recomp config for Tsumi to Batsu: Hoshi no Keishousha (Japan).
+# The fan-translated English ROM runs the same recompiled code (its code
+# segments are identical, STATUS.md round 1).
+
+[input]
+entrypoint = 0x80025C00
+output_func_path = "RecompiledFuncs"
+rom_file_path = "Tsumi to Batsu - Hoshi no Keishousha (Japan).z64"
+symbols_file_path = "SnPSyms/snp.jp.syms.toml"
+
+
+[patches]
+
+# --- The fan-translated English ROM ----------------------------------------
+# Its code is the same as the Japanese ROM's except for a few constants that
+# point at data the translation moved (STATUS.md round 1). Both ROMs run
+# this one recompiled build, so these hooks put the English ROM's value in
+# the register right after the original instruction pair built the Japanese
+# one. src/game/rom_version.cpp says which ROM is running.
+
+# func_8002BCE0: a display list address, 0x802B5D20 -> 0x802B5D60.
+[[patches.hook]]
+func = "func_8002BCE0"
+before_vram = 0x8002BD60
+text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+
+[[patches.hook]]
+func = "func_8002BCE0"
+before_vram = 0x8002BD90
+text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+
+[[patches.hook]]
+func = "func_8002BCE0"
+before_vram = 0x8002BD9C
+text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+
+# func_8003C0D0: the ROM offset of the last asset file, 0x00A8CA40 -> 0x00A65CF0.
+[[patches.hook]]
+func = "func_8003C0D0"
+before_vram = 0x8003C160
+text = "if (snp_rom_is_english()) ctx->r3 = 0x00A65CF0; // snp: English ROM constant"
+
+[[patches.hook]]
+func = "func_8003C0D0"
+before_vram = 0x8003C1A0
+text = "if (snp_rom_is_english()) ctx->r2 = 0x00A65CF0; // snp: English ROM constant"
+
+[[patches.hook]]
+func = "func_8003C0D0"
+before_vram = 0x8003C1F4
+text = "if (snp_rom_is_english()) ctx->r3 = 0x00A65CF0; // snp: English ROM constant"
