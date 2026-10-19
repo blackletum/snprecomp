@@ -11,8 +11,8 @@ made by statically recompiling the N64 game with
 Unofficial, and not affiliated with the rights holders. **No game data is
 included.** You need your own dump of the game to build or play this.
 
-**Status: early work in progress.** Both ROMs boot into the attract mode
-(intro cutscenes); gameplay isn't tested yet. See [PROGRESS.md](PROGRESS.md).
+**Status: early work in progress.** Both ROMs boot, and the menus and the
+first stage play; the rest isn't tested yet. See [PROGRESS.md](PROGRESS.md).
 
 ## Game Files
 

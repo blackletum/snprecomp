@@ -53,46 +53,36 @@ python3 tools/normalize_rom.py "your dump.n64" "Tsumi to Batsu - Hoshi no Keisho
 The game itself asks for a ROM on first launch (`.z64`, `.n64` or `.v64`)
 and accepts either the Japanese ROM or the fan translation.
 
-## 4. Generate the recompiled code
+## 4. Configure, generate the recompiled code, build
 
-Build N64Recomp and run it on the config. This writes `RecompiledFuncs/`
-(gitignored). After this first time, the main build reruns N64Recomp by
-itself whenever the `.toml` or the symbol file changes.
+Configuring applies this project's fixes to the submodules (`lib-patches/`).
+One of them changes the code N64Recomp generates (division by zero), so the
+game code must be generated with the N64Recomp this build makes, not one
+built from the submodule on its own. Generating writes `RecompiledFuncs/`
+(gitignored); after this first time, the build reruns N64Recomp by itself
+whenever the `.toml`, the symbol file or an N64Recomp fix changes. The build
+also generates the RSP audio microcode (`rsp/`) and the patch library
+(`RecompiledPatches/`).
 
 **Linux:**
 
 ```bash
-cmake -S lib/N64ModernRuntime/N64Recomp -B lib/N64ModernRuntime/N64Recomp/build -G Ninja
-cmake --build lib/N64ModernRuntime/N64Recomp/build --target N64RecompCLI RSPRecomp -j$(nproc)
-./lib/N64ModernRuntime/N64Recomp/build/N64Recomp snp.jp.toml
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake --build build --target N64RecompCLI -j$(nproc)
+./build/N64Recomp snp.jp.toml
+cmake -S . -B build    # again, now that RecompiledFuncs/ exists
+cmake --build build --target SnPRecompiled -j$(nproc)
+./build/SnPRecompiled
 ```
 
 **Windows** (in a Developer PowerShell for VS 2022, x64):
 
 ```powershell
 $env:SNP_CLANGCL = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe"
-cmake -S lib\N64ModernRuntime\N64Recomp -B lib\N64ModernRuntime\N64Recomp\build -G Ninja -DCMAKE_C_COMPILER="$env:SNP_CLANGCL" -DCMAKE_CXX_COMPILER="$env:SNP_CLANGCL"
-cmake --build lib\N64ModernRuntime\N64Recomp\build --target N64RecompCLI
-.\lib\N64ModernRuntime\N64Recomp\build\N64Recomp.exe snp.jp.toml
-```
-
-The main build (next step) generates the rest itself: the RSP audio microcode
-(`rsp/`, via RSPRecomp) and the patch library (`RecompiledPatches/`).
-
-## 5. Build and run
-
-**Linux:**
-
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-cmake --build build --target SnPRecompiled -j$(nproc)
-./build/SnPRecompiled
-```
-
-**Windows:**
-
-```powershell
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="$env:SNP_CLANGCL" -DCMAKE_CXX_COMPILER="$env:SNP_CLANGCL"
+cmake --build build --target N64RecompCLI
+.\build\N64Recomp.exe snp.jp.toml
+cmake -S . -B build
 cmake --build build --target SnPRecompiled
 .\build\SnPRecompiled.exe
 ```

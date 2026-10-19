@@ -24,10 +24,14 @@ and leave the game's own behaviour, look and balance alone.
   BUTTON", subtitles in the ROM's language). Busy-wait loops yield to the
   runtime's scheduler and overlays are registered as the game loads them
   (STATUS.md round 2).
+- **Plays**: the title screen, main menu and stage 1 run. Division by zero
+  gives the N64's results instead of crashing (an N64Recomp fix,
+  `lib-patches/N64Recomp/`, STATUS.md round 3).
 
 ## Next
 
-- Past the attract mode: input, the title menu, gameplay, sound.
+- Play further: the rest of stage 1 and the later stages, the other menu
+  options, saving. Sound hasn't been heard yet (tested headless).
 - Confirm the EEPROM size (4K assumed).
 - Rumble, controller defaults for the game's controls.
 - Higher framerates: check the game's frame timing (btgarecomp round 138's

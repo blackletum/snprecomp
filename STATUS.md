@@ -236,3 +236,36 @@ first match, even one without a ROM. A runtime patch
 (`lib-patches/N64ModernRuntime/`, applied at configure time like the RT64
 fixes) makes it take the first match with a valid ROM and accept a full
 game id too: `--game snp.n64.jp.1.0` or `--game snp.n64.en.fan`.
+
+## Round 3: menus and the first stage
+
+Input works headless too (`xdotool` keys into the Xvfb window; the
+frontend's keyboard defaults: Return is Start, WASD the stick, Q is Z).
+Start on the attract mode gives the title screen and the main menu, which
+is driven with the aiming cursor (stick to move, Z to select).
+
+### Division by zero
+
+Selecting START GAME crashed with a host floating point exception in
+`func_800A9954`: an unsigned divide by zero (`divu` at `0x800A99B0`,
+`0x8000 / x`). The game was compiled without zero-division checks: of its
+1111 `div`/`divu`, only 9 are followed by a `break`. On the VR4300 a
+division by zero doesn't trap: the quotient is -1 (1 for a negative signed
+dividend) and the remainder is the dividend. N64Recomp emitted a plain C
+division, which traps on the host.
+
+btgarecomp guarded the few divisions that hit this with per-site hooks;
+with 1111 here, N64Recomp itself is fixed instead
+(`lib-patches/N64Recomp/`): `div`/`divu` are emitted as `DIV32`/`DIVU32`,
+and `DDIV`/`DDIVU` handle zero too, all giving the VR4300's results. Since
+it changes the generated code, `RecompiledFuncs/` now has to be generated
+with the N64Recomp the main build makes (with the patch applied), and the
+build regenerates it when an N64Recomp patch changes. BUILDING.md's steps
+changed accordingly.
+
+### Result: the first stage plays
+
+START GAME now runs stage 1: the player, enemies, the HUD (score, time,
+life) and the aiming crosshair; shooting scores. The crosshair's two red
+guide lines reach past the 4:3 frame into the window's side areas (to look
+at with widescreen).

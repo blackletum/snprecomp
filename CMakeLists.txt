@@ -88,8 +88,13 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 
 set(BUILD_SHARED_LIBS OFF)
 
-# Local runtime fixes (lib-patches/N64ModernRuntime/), applied the same way.
+# Local runtime and recompiler fixes (lib-patches/N64ModernRuntime/, lib-patches/N64Recomp/),
+# applied the same way. N64Recomp is a submodule inside N64ModernRuntime; its fixes change the
+# generated code, so RecompiledFuncs/ must be generated with the N64Recomp this build makes
+# (BUILDING.md).
 snp_apply_lib_patches(N64ModernRuntime)
+snp_apply_lib_patches(N64Recomp lib/N64ModernRuntime/N64Recomp)
+file(GLOB SNP_N64RECOMP_PATCHES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/lib-patches/N64Recomp/*.patch)
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime)
 
 
@@ -159,6 +164,7 @@ if (EXISTS "${SNP_ROM_FILE}" AND (FUNC_C_SOURCES OR FUNC_CXX_SOURCES)
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         DEPENDS ${CMAKE_SOURCE_DIR}/snp.jp.toml
                 ${CMAKE_SOURCE_DIR}/SnPSyms/snp.jp.syms.toml
+                ${SNP_N64RECOMP_PATCHES}
                 N64RecompCLI
         BYPRODUCTS ${FUNC_C_SOURCES} ${FUNC_CXX_SOURCES}
                 ${CMAKE_SOURCE_DIR}/RecompiledFuncs/recomp_overlays.inl
