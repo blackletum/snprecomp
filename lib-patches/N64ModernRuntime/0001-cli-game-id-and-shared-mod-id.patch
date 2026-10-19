@@ -1,0 +1,39 @@
+From: snprecomp
+Subject: --game: accept a full game id, and pick the first game with a valid ROM
+
+Two supported ROMs of one game share a mod game id; the CLI used to stop at
+the first match even when its ROM was missing. (snprecomp STATUS.md round 2)
+
+diff --git a/librecomp/src/recomp.cpp b/librecomp/src/recomp.cpp
+index 850689d..ca35802 100644
+--- a/librecomp/src/recomp.cpp
++++ b/librecomp/src/recomp.cpp
+@@ -834,19 +834,22 @@ void parse_cli(int argc, char **argv) {
+ 
+     if (!cli_game_id.empty()) {
+         // We use the mod game ID instead to do the lookup since it's much easier for the user to remember.
++        // snprecomp: the full game ID works too, and when several games share a mod game ID (two ROMs
++        // of one game), the first one with a valid ROM is used.
+         std::u8string game_id;
++        bool found_game = false;
+         for (const auto &it : game_roms) {
+-            if (it.second.mod_game_id == cli_game_id) {
++            if (it.second.mod_game_id == cli_game_id || it.second.game_id == std::u8string(cli_game_id.begin(), cli_game_id.end())) {
++                found_game = true;
+                 if (recomp::is_rom_valid(it.second.game_id)) {
+                     game_id = it.second.game_id;
++                    break;
+                 }
+-                else {
+-                    fprintf(stderr, "Game \"%s\" does not have a valid ROM. Please select a ROM on the launcher first.\n", cli_game_id.c_str());
+-                }
+-
+-                break;
+             }
+         }
++        if (found_game && game_id.empty()) {
++            fprintf(stderr, "Game \"%s\" does not have a valid ROM. Please select a ROM on the launcher first.\n", cli_game_id.c_str());
++        }
+ 
+         if (!game_id.empty()) {
+             bool game_mode_error = false;

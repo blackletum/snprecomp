@@ -142,3 +142,97 @@ game-specific timing, widescreen and scheduler fixes.
 - The cooperative scheduler issues btgarecomp hit (busy-wait loops waiting on
   another thread) may show up here too; its `scheduler_workaround.cpp` is
   the starting point.
+
+## Round 2: first boots
+
+Run headless for testing: Xvfb with Mesa's software Vulkan (lavapipe), the
+ROMs stored in a portable config folder as `<game id>.z64`, started with
+`--game snp`. (`--game` matches the mod game id, which both ROMs share, so
+it starts whichever registered entry comes first; both ROMs are valid
+here.) Thread stacks come from gdb attached to the running game.
+
+### Link: SDK functions n64sym missed
+
+Four SDK functions without an n64sym match were recompiled from the ROM,
+and their calls into functions N64Recomp replaces didn't link. Named from
+what they call (`EXTRA_NAMES` in `tools/gen_syms_toml.py`) so N64Recomp
+replaces or skips them too: `osEPiStartDma` (`0x8003EBB0`), `osContInit`
+(`0x800433B0`), `viMgrMain` (`0x80048110`), `__osRepairPackId`
+(`0x8004ABF8`).
+
+### Missing functions
+
+- `0x80025C40`: the entry stub ends in `jr $t2` to it, and spimdisasm had
+  merged the two. Split by an override.
+- `0x8004E640`, a thread entry point only reached through a pointer.
+  `tools/gen_syms_toml.py` now starts a function at every address the code
+  builds with lui/addiu or stores in a segment's data, when it begins a
+  stack frame and the code before it never falls through. The first
+  version, without the stack-frame rule, split jump tables (their case
+  labels are code addresses in data too) and addresses made up by a `lui`
+  and an unrelated `addiu`; N64Recomp then failed on the switch statements.
+  That adds 8 functions.
+
+### Busy-wait loops
+
+With every function present, the game started its threads and then
+stalled: the main thread waited for a retrace message that never came.
+The idle thread (`func_80025CA4`, priority 0) ends in a loop polling
+`D_800657B0` for a callback, with no OS call. On the N64 an interrupt
+preempts it; the runtime only switches threads inside OS calls, and only
+delivers VI and other events when a game thread waits for one, so the
+spinning idle thread kept everything else waiting.
+
+Two more loops do the same: the main thread polls `D_80068A95`
+(`func_80025E44`) and `func_8004D7B0` waits for the job thread
+(`func_8004D7C8`) to finish its jobs (`D_8007AB94` counts them).
+`tools/find_spin_loops.py` lists short loops that only load a fixed
+address and branch; besides these three it finds only hardware register
+polls inside SDK functions the runtime replaces.
+
+Each loop head gets a hook calling `snp_spin_yield`
+(`src/game/spin_wait.cpp`): wait up to 1 ms for an event, deliver every
+pending one, switch to any higher-priority thread that's ready, then drop
+the thread to priority 0 and back so lower-priority ready threads (the job
+thread, for the main thread) get to run too. The priority drop does nothing
+for the idle thread, already at 0: `osSetThreadPri` returns early when the
+priority doesn't change, so the explicit switch is needed (the first
+version without it stalled again at the same wait).
+
+### Segment loading
+
+The game's segment loader `func_8003A5F0` (called by `func_8003A1D0` with
+a load table entry) copies a segment in 0x1000-byte `osPiStartDma`
+chunks. The runtime registers a code section only when one DMA covers all
+of it, so most overlays would never be registered. A hook after the copy
+loop (`src/game/overlay_loader.cpp`) registers the segment once it's in
+place, after unloading every section in the span any overlay at that
+address covers (overlays sharing an address differ in size; a partial
+unload is fatal). On the first load it also drops the sections the
+runtime's startup registered at wrong addresses (round 1's first risk).
+
+`osAiGetLength` (`0x8003F350`, between `__osAiDeviceBusy` and
+`osAiGetStatus`) was the next unnamed SDK function: recompiled, it read the
+AI length register and crashed when audio started. Named too. A scan for
+recompiled functions that build hardware register addresses turns up only
+`func_8004BA30` (PI registers, only called from `__osInitialize_common`,
+which the runtime replaces) and float constants (`lui 0xBF80` is -1.0f).
+
+### Result: the attract mode runs
+
+With these, both ROMs boot into the attract mode: the intro cutscenes in
+3D with "PRESS START BUTTON" and subtitles, English with the fan
+translation and Japanese with the Japanese ROM. Not checked yet: sound (no
+audio device headless), input, the title menu and gameplay.
+
+Some cutscene shots already draw wider than 4:3 on their own (the side
+areas in a few shots); to look at with widescreen.
+
+### `--game`
+
+Both ROMs share the mod game id `snp`, so mods apply to either. The
+runtime's `--game` option matched only the mod game id and stopped at the
+first match, even one without a ROM. A runtime patch
+(`lib-patches/N64ModernRuntime/`, applied at configure time like the RT64
+fixes) makes it take the first match with a valid ROM and accept a full
+game id too: `--game snp.n64.jp.1.0` or `--game snp.n64.en.fan`.

@@ -368,7 +368,7 @@ functions = [
     { name = "__osPiRelAccess", vram = 0x8003F250, size = 0x30 },
     { name = "osPiStartDma", vram = 0x8003F280, size = 0xB0 },
     { name = "__osAiDeviceBusy", vram = 0x8003F330, size = 0x20 },
-    { name = "func_8003F350", vram = 0x8003F350, size = 0x10 },
+    { name = "osAiGetLength", vram = 0x8003F350, size = 0x10 },
     { name = "osAiGetStatus", vram = 0x8003F360, size = 0x10 },
     { name = "osAiSetFrequency", vram = 0x8003F370, size = 0x120 },
     { name = "osAiSetNextBuffer", vram = 0x8003F490, size = 0xA0 },

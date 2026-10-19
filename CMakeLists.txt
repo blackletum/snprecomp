@@ -88,6 +88,8 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 
 set(BUILD_SHARED_LIBS OFF)
 
+# Local runtime fixes (lib-patches/N64ModernRuntime/), applied the same way.
+snp_apply_lib_patches(N64ModernRuntime)
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime)
 
 

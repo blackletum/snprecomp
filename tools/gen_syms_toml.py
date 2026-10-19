@@ -49,6 +49,7 @@ OVERRIDES = {
 # (STATUS.md round 1). N64Recomp's built-in lists replace or skip them by name.
 EXTRA_NAMES = {
     0x8003EBB0: "osEPiStartDma",      # devmgr active check, then jam/send of the request
+    0x8003F350: "osAiGetLength",      # reads AI_LEN (0xA4500004), between __osAiDeviceBusy and osAiGetStatus
     0x800433B0: "osContInit",         # __osPackRequestData, __osSiRawStartDma, __osContGetInitData
     0x80048110: "viMgrMain",          # __osViGetCurrentContext, __osViSwapContext, __osTimerInterrupt
     0x8004ABF8: "__osRepairPackId",   # between __osIdCheckSum and __osCheckPackId; __osContRam*

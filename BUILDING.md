@@ -98,7 +98,8 @@ cmake --build build --target SnPRecompiled
 ```
 
 Run it from the repo root: the game loads `assets/` relative to the working
-directory.
+directory. `--game snp` skips the launcher (`--game snp.n64.jp.1.0` or
+`--game snp.n64.en.fan` to pick the ROM when both are set up).
 
 ## Regenerating the symbol file
 

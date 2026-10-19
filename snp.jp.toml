@@ -11,6 +11,41 @@ symbols_file_path = "SnPSyms/snp.jp.syms.toml"
 
 [patches]
 
+# --- Code segments ----------------------------------------------------------
+# The game's segment loader copies a segment in 0x1000-byte DMAs, too small
+# for the runtime to see the code section being loaded. Register it once the
+# copy is done (src/game/overlay_loader.cpp, STATUS.md round 2). 0x8003A6F8 is
+# right after the copy loop; $s5 holds the load request.
+[[patches.hook]]
+func = "func_8003A5F0"
+before_vram = 0x8003A6F8
+text = "snp_segment_loaded(rdram, (int32_t)ctx->r21); // snp: register loaded segment"
+
+# --- Busy-wait loops ------------------------------------------------------
+# These loops poll a flag with no OS call, which never lets the runtime run
+# another thread or deliver events. Yield on each pass
+# (src/game/spin_wait.cpp, STATUS.md round 2). Each before_vram is the loop
+# head, the target of the loop's branch. tools/find_spin_loops.py finds them.
+
+# The idle thread, waiting for a callback in D_800657B0.
+[[patches.hook]]
+func = "func_80025CA4"
+before_vram = 0x80025D30
+text = "snp_spin_yield(rdram); // snp: busy-wait yield"
+
+# The main thread, waiting on D_80068A95.
+[[patches.hook]]
+func = "func_80025E44"
+before_vram = 0x80025FB0
+text = "snp_spin_yield(rdram); // snp: busy-wait yield"
+
+# Waiting for the job thread (func_8004D7C8) to finish: D_8007AB94 counts
+# its pending jobs.
+[[patches.hook]]
+func = "func_8004D7B0"
+before_vram = 0x8004D7B0
+text = "snp_spin_yield(rdram); // snp: busy-wait yield"
+
 # --- The fan-translated English ROM ----------------------------------------
 # Its code is the same as the Japanese ROM's except for a few constants that
 # point at data the translation moved (STATUS.md round 1). Both ROMs run

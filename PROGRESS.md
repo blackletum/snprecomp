@@ -15,16 +15,19 @@ and leave the game's own behaviour, look and balance alone.
 - **Both ROMs**: the Japanese ROM and the fan English translation share one
   recompiled build. Their code differs only in two functions' constants,
   substituted by hooks when the English ROM runs.
-- **Recompilation**: all 6278 functions recompile from the Japanese ROM
+- **Recompilation**: all 6280 functions recompile from the Japanese ROM
   (`snp.jp.toml`, `SnPSyms/`), generated reproducibly by `tools/`.
 - **Audio microcode**: recompiled by RSPRecomp (`n_aspMain.jp.toml`).
 - **Project**: build, frontend, patch pipeline and RT64 fixes set up from
   btgarecomp.
+- **Boots**: both ROMs run the attract mode (intro cutscenes, "PRESS START
+  BUTTON", subtitles in the ROM's language). Busy-wait loops yield to the
+  runtime's scheduler and overlays are registered as the game loads them
+  (STATUS.md round 2).
 
 ## Next
 
-- First run: get to the title screen. See "Known risks for the first run"
-  in STATUS.md round 1.
+- Past the attract mode: input, the title menu, gameplay, sound.
 - Confirm the EEPROM size (4K assumed).
 - Rumble, controller defaults for the game's controls.
 - Higher framerates: check the game's frame timing (btgarecomp round 138's
