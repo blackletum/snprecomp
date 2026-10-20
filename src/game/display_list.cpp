@@ -16,6 +16,7 @@
 // Diagnostic: with SNP_DL_DIAG set, every SNP_DL_DIAG_INTERVAL-th (default
 // 300) graphics task's color images, scissors, viewports, fill and texture
 // rectangles, combine and render modes are printed as they're walked.
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -49,16 +50,16 @@ namespace {
     uint32_t segments[16];
     bool log_frame = false;
 
+    void set_command(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
+        MEM_W(0, (gpr)(int32_t)addr) = (int32_t)w0;
+        MEM_W(4, (gpr)(int32_t)addr) = (int32_t)w1;
+    }
+
     uint32_t resolve(uint32_t addr) {
         if (addr & 0x80000000u) {
             return addr;
         }
         return 0x80000000u | ((segments[(addr >> 24) & 0xF] + (addr & 0x00FFFFFF)) & 0x00FFFFFF);
-    }
-
-    void set_command(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
-        MEM_W(0, (gpr)(int32_t)addr) = (int32_t)w0;
-        MEM_W(4, (gpr)(int32_t)addr) = (int32_t)w1;
     }
 
     void log_command(int depth, uint8_t* rdram, uint32_t w0, uint32_t w1) {
@@ -81,6 +82,11 @@ namespace {
             case 0xF6: rect("fill rect", w1, w0); break;
             case 0xE4: rect("tex rect", w1, w0); break;
             case 0xFC: printf("[DL] %*scombine %08X %08X\n", depth, "", w0, w1); break;
+            case 0xDE: printf("[DL] %*sdisplay list %08X %08X\n", depth, "", w0, w1); break;
+            case 0xFD: printf("[DL] %*stexture image %08X fmt %u siz %u width %u\n", depth, "", w1, (w0 >> 21) & 7, (w0 >> 19) & 3, (w0 & 0xFFF) + 1); break;
+            case 0xF5: printf("[DL] %*ssettile %08X %08X\n", depth, "", w0, w1); break;
+            case 0xF4: printf("[DL] %*sloadtile %08X %08X\n", depth, "", w0, w1); break;
+            case 0x64: printf("[DL] %*sextended %08X %08X\n", depth, "", w0, w1); break;
             case 0xE2: printf("[DL] %*sothermode_L %08X %08X\n", depth, "", w0, w1); break;
             default: break;
         }
@@ -161,7 +167,9 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     }
     uint32_t dl = (uint32_t)MEM_W(0x30, task); // OSTask.data_ptr
     if (log_frame) {
-        printf("[DL] ---- frame %d, display list %08X%s\n", frame - 1, dl, widen ? " (widened)" : "");
+        static const auto start = std::chrono::steady_clock::now();
+        double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        printf("[DL] ---- frame %d at %.1f s, display list %08X%s\n", frame - 1, t, dl, widen ? " (widened)" : "");
     }
     for (uint32_t& s : segments) {
         s = 0;
