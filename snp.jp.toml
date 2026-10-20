@@ -21,6 +21,24 @@ func = "func_8003A5F0"
 before_vram = 0x8003A6F8
 text = "snp_segment_loaded(rdram, (int32_t)ctx->r21); // snp: register loaded segment"
 
+# --- Frame display lists --------------------------------------------------
+# Right before each osSpTaskLoad in the game's task threads, with the OSTask
+# in $a0: widescreen fixes and a diagnostic (src/game/display_list.cpp).
+[[patches.hook]]
+func = "func_8004E640"
+before_vram = 0x8004E73C
+text = "snp_display_list_hook(rdram, (int32_t)ctx->r4); // snp: frame display list"
+
+[[patches.hook]]
+func = "func_8004E4A0"
+before_vram = 0x8004E578
+text = "snp_display_list_hook(rdram, (int32_t)ctx->r4); // snp: frame display list"
+
+[[patches.hook]]
+func = "func_8004E4A0"
+before_vram = 0x8004E5E8
+text = "snp_display_list_hook(rdram, (int32_t)ctx->r4); // snp: frame display list"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass

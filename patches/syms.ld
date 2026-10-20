@@ -50,5 +50,3 @@ evtq_unlock_recomp = 0x8F0000D8;
 osViBlack_recomp = 0x8F0000E4;
 osViSwapBuffer_recomp = 0x8F0000E8;
 
-/* Game data the patches use */
-D_80060BBC = 0x80060BBC;

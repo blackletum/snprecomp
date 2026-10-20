@@ -285,3 +285,67 @@ frontend's own.
 
 Still to check: with the keyboard, the highlight starts on Controls rather
 than the start option.
+
+## Round 5: widescreen (Expand) part 1; the real frame swap; green theme
+
+Windows reports: in Expand, old frames and bright red stripes showed beside
+the picture in cutscenes, the title screen and gameplay; the crosshair has
+thin lines across the screen; models jitter in cutscenes (interpolation,
+see Next).
+
+### What the game draws
+
+A display list diagnostic (`src/game/display_list.cpp`, `SNP_DL_DIAG=1`)
+walks each frame's graphics task and logs color images, scissors,
+viewports, fill and texture rectangles and render modes. It's hooked right
+before the game's task threads (`func_8004E640`, `func_8004E4A0`) call
+`osSpTaskLoad`, with the `OSTask` in `$a0`.
+
+- Every frame is drawn inside an inset: scissor 12,8 - 308,231, cleared
+  only there (fill 12,8 - 307,231). At the end the game opens the scissor
+  to the full screen and draws a black border around the inset (four fill
+  rectangles). The viewport is the full screen.
+- RT64 widens a 3D view in Expand only when its scissor spans the full
+  screen width, so the picture stayed 4:3, and the side areas, which
+  nothing clears, kept old frames.
+- The crosshair's lines are the game's own: full-width and full-height fill
+  rectangles through the crosshair, built like its HUD boxes (outline and
+  fill), drawn translucent (1-cycle, alpha blend, primitive alpha) and
+  clipped to the inset. They're faint in Original aspect, at native
+  resolution too, so they're likely on hardware as well (not yet compared).
+  In Expand RT64 extends full-width rectangles past the scissor, and with
+  nothing clearing the side areas each frame's translucent line blended
+  over the last into bright stripes.
+
+### Fix (Expand only)
+
+`snp_display_list_hook` rewrites the frame's display list before it's
+loaded, when the frontend's widescreen scale is above 1 (Expand with a
+wider window):
+- the inset scissor becomes the full screen, so RT64 widens the view;
+- fill rectangles spanning the inset's width (x 12 - 307: the clear, fades,
+  tints, the backdrop band behind the grass in stage 1) span the full
+  width, and the full screen height too when they span the inset's height
+  (y 8 - 231), or the rows above and below the inset keep old frames;
+- the border's four rectangles become no-ops.
+
+Result: cutscenes and stage 1 fill the window in Expand, with nothing stale
+beside them. Still 4:3 in Expand: the game's framebuffer effects, which
+redraw the previous frame as a texture over the inset (scene cross-fades,
+the motion-blurred zoom behind the title logo, some tinted shots). The HUD
+isn't anchored to the edges yet.
+
+### The frame swap and the UI pump
+
+The diagnostic was first called from the round 1 patch of libsched's
+`__scTaskComplete` and never ran: the game links libsched but runs its own
+scheduler. Its frame swap is `func_8004D748`, a job for the job thread
+(`func_8004D7C8`) that calls `osViSwapBuffer` with the job's framebuffer
+(offset 0x0C). The UI pump patch (`patches/recompui_patches.c`) now
+replaces that function instead, so the frontend's per-frame UI callbacks
+actually run in game.
+
+### Theme
+
+Green instead of orange, after the title logo's black, green and white
+(the frontend's blue palette with green and blue swapped).

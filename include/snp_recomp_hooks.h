@@ -18,6 +18,9 @@ int snp_rom_is_english(void);
 // src/game/overlay_loader.cpp: registers a code segment the game loaded.
 void snp_segment_loaded(uint8_t* rdram, int32_t args);
 
+// src/game/display_list.cpp: fixes up a frame's display list before it's loaded.
+void snp_display_list_hook(uint8_t* rdram, int32_t task);
+
 // src/game/spin_wait.cpp: lets other threads run from a busy-wait loop.
 void snp_spin_yield(uint8_t* rdram);
 
