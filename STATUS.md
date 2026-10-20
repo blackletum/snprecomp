@@ -349,3 +349,51 @@ actually run in game.
 
 Green instead of orange, after the title logo's black, green and white
 (the frontend's blue palette with green and blue swapped).
+
+## Round 6: audio crackle; quitting on Windows
+
+### Constant crackle
+
+`SNP_AUDIO_DIAG=1` (in `queue_samples`, `src/main/main.cpp`) logs per
+second the audio the game delivered, chunk sizes, the queue's range and
+drops. Run headless with SDL's real-time `disk` audio driver
+(`SDL_AUDIODRIVER=disk`), it showed the game delivering about 28,500 frames
+a second for a 22,050 Hz output: always 920-frame chunks, 30 a second. The
+queue sat at the 200 ms latency cap and about 6 chunks a second were
+dropped, each an audible skip.
+
+The game's audio thread (`func_80052064`, libmus) sizes each frame from
+`osAiGetLength` with hysteresis: frame 920 (184-sample steps, the
+`func_800521DC` sizing), 736 or 1104 to correct, but a correction only
+after the length was in its target band (220 - 404 samples) the frame
+before (`func_80052268`, flag `D_800622B0`). And it skips a frame while
+`osAiGetStatus` says the AI FIFO is full. On hardware `AI_LEN` is what's
+left of the buffer playing now (0 - 920 samples) and the FIFO holds two
+buffers. The runtime reports the whole queue as the length and never full,
+so the length jumped past the band, no correction ever started, and the
+game wrote 25% too much. (Not btgarecomp's under-reported "headroom", which
+this game doesn't use: removing it changed nothing.)
+
+Fix: two hooks in `func_80052064` replace the results of its
+`osAiGetStatus` and `osAiGetLength` calls with hardware-like ones from the
+frontend, which tracks the chunks it queued: the length is what's left of
+the chunk playing now, and the FIFO is full while two chunks wait behind it
+(one more than hardware, for host thread wakeup jitter). Measured: 22,050
+frames a second on average in 736/920/1104 chunks, queue 32 - 90 ms, no
+drops, never empty after startup.
+
+(The game's `__osInitialize_common` does the `osClockRate * 3 / 4` step
+that btgarecomp round 138 had to redo, but nothing else in this game reads
+`osClockRate`, so nothing runs slow here.)
+
+### Quitting on Windows: "stopped interacting with Windows"
+
+Quitting from the in-game menu ended in a Windows cross-thread hang report.
+First seen on a build from before round 5, whose UI pump never ran; still
+there after it. Quitting exits cleanly here on Linux. On quit, the runtime
+joins the game, graphics and event threads before `recomp::start` returns;
+when that takes a while the window stops pumping messages and Windows
+closes the program as hung. A watchdog in `main.cpp` ends the process 3
+seconds after quitting starts (the runtime's `exited` flag) if it's still
+running. Saves are written as the game goes, so nothing needs the orderly
+shutdown.

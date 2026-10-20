@@ -39,6 +39,22 @@ func = "func_8004E4A0"
 before_vram = 0x8004E5E8
 text = "snp_display_list_hook(rdram, (int32_t)ctx->r4); // snp: frame display list"
 
+# --- Audio ----------------------------------------------------------------
+# The audio thread sizes each frame from AI_LEN and skips a frame while the
+# AI FIFO is full; the runtime's answers don't match the hardware's, so the
+# game wrote 25% too much audio (crackle). Replace the results of its
+# osAiGetStatus (jal at 0x800520C8) and osAiGetLength (0x800520D4) calls
+# (src/main/main.cpp, STATUS.md round 6).
+[[patches.hook]]
+func = "func_80052064"
+before_vram = 0x800520D0
+text = "{ extern uint32_t snp_ai_status(void); ctx->r2 = (gpr)(int32_t)snp_ai_status(); } // snp: AI status"
+
+[[patches.hook]]
+func = "func_80052064"
+before_vram = 0x800520DC
+text = "{ extern uint32_t snp_ai_length(void); ctx->r2 = (gpr)(int32_t)snp_ai_length(); } // snp: AI length"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass

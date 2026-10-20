@@ -27,11 +27,13 @@ and leave the game's own behaviour, look and balance alone.
 - **Plays**: the title screen, main menu and stage 1 run. Division by zero
   gives the N64's results instead of crashing (an N64Recomp fix,
   `lib-patches/N64Recomp/`, STATUS.md round 3).
+- **Audio**: no crackle; the audio thread gets hardware-like AI length and
+  FIFO status (STATUS.md round 6). Quitting can't hang on Windows.
 
 ## Next
 
 - Play further: the rest of stage 1 and the later stages, the other menu
-  options, saving. Sound hasn't been heard yet (tested headless).
+  options, saving.
 - Confirm the EEPROM size (4K assumed).
 - Rumble, controller defaults for the game's controls.
 - Higher framerates: check the game's frame timing (btgarecomp round 138's

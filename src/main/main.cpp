@@ -15,10 +15,14 @@
 #include <cstdlib>
 #include <cinttypes>
 #include <mutex>
+#include <deque>
 #include <vector>
 #include <filesystem>
 #include <exception>
 #include <string>
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 #include "nfd.h"
 
@@ -213,11 +217,9 @@ static std::mutex audio_mutex;
 static constexpr uint32_t audio_channels = 2;
 static uint32_t game_frequency = 44100;
 
-// Extra audio the game is told it still needs to generate, beyond what's
-// actually queued. The game sizes each audio task from osAiGetLength, so
-// without this margin a late audio thread wakeup (they're host threads here,
-// not hardware interrupts) lets the queue run dry for a moment: crackle.
-static constexpr uint32_t audio_headroom_vis = 2;
+// The runtime's osAiGetLength (used by nothing in this game's audio thread,
+// which gets snp_ai_length instead) is told exactly what's queued.
+static constexpr uint32_t audio_headroom_vis = 0;
 
 // Latency cap. Nothing drains a surplus on its own: when the game delivers a
 // burst faster than real time (e.g. skipping a cutscene), the extra stays
@@ -254,6 +256,47 @@ static bool open_audio_device(uint32_t frequency) {
     return true;
 }
 
+// Hardware-like audio interface status for the game's audio thread
+// (STATUS.md round 6). The game (libmus) sizes each audio frame from AI_LEN,
+// which on hardware is what's left of the buffer playing now, and skips a
+// frame while the AI's two-buffer queue is full. The runtime reports the
+// whole queue as the length and never full, so the game's correction never
+// started and it wrote 25% more audio than plays, which then piled up to the
+// latency cap and was dropped: constant crackle. Hooks in snp.jp.toml
+// replace both results in the audio thread (func_80052064) with these.
+static std::deque<size_t> queued_chunks; // frames in each chunk not yet fully played, oldest first
+static size_t queued_chunk_frames = 0;   // their total
+
+// Drops chunks that have finished playing; audio_mutex must be held.
+static size_t played_up_to_now() {
+    size_t queued = audio_device != 0 ? SDL_GetQueuedAudioSize(audio_device) / (audio_channels * sizeof(float)) : 0;
+    while (!queued_chunks.empty() && queued_chunk_frames - queued_chunks.front() >= queued) {
+        queued_chunk_frames -= queued_chunks.front();
+        queued_chunks.pop_front();
+    }
+    return queued;
+}
+
+// AI_LEN: bytes left in the chunk playing now.
+extern "C" uint32_t snp_ai_length() {
+    std::lock_guard<std::mutex> lock(audio_mutex);
+    size_t queued = played_up_to_now();
+    if (queued_chunks.empty()) {
+        return 0;
+    }
+    size_t after_current = queued_chunk_frames - queued_chunks.front();
+    size_t current = queued > after_current ? queued - after_current : 0;
+    return (uint32_t)(current * 2 * sizeof(int16_t));
+}
+
+// AI_STATUS: FIFO full (bit 31) while two chunks wait behind the playing one,
+// one more than the hardware, against host thread wakeup jitter.
+extern "C" uint32_t snp_ai_status() {
+    std::lock_guard<std::mutex> lock(audio_mutex);
+    played_up_to_now();
+    return queued_chunks.size() >= 3 ? 0x80000000u : 0;
+}
+
 static void queue_samples(int16_t* audio_data, size_t sample_count) {
     if (audio_device == 0) {
         return;
@@ -278,15 +321,46 @@ static void queue_samples(int16_t* audio_data, size_t sample_count) {
     }
     const size_t bytes_per_ms = game_frequency * audio_channels * sizeof(float) / 1000;
     const size_t queued_bytes = SDL_GetQueuedAudioSize(audio_device);
+
+    // Diagnostic (SNP_AUDIO_DIAG=1): per second, the samples the game
+    // delivered, the chunk count and sizes, the queue's low and high water marks
+    // and how often it was empty when a chunk arrived or a chunk was dropped.
+    static const bool audio_diag = std::getenv("SNP_AUDIO_DIAG") != nullptr;
+    if (audio_diag) {
+        static auto window_start = std::chrono::steady_clock::now();
+        static size_t frames = 0, chunks = 0, empty = 0, dropped = 0, min_chunk = SIZE_MAX, max_chunk = 0;
+        static size_t min_queued = SIZE_MAX, max_queued = 0;
+        frames += sample_count / audio_channels;
+        chunks++;
+        min_chunk = std::min(min_chunk, sample_count / audio_channels);
+        max_chunk = std::max(max_chunk, sample_count / audio_channels);
+        min_queued = std::min(min_queued, queued_bytes);
+        max_queued = std::max(max_queued, queued_bytes);
+        empty += queued_bytes == 0;
+        dropped += queued_bytes > audio_soft_cap_ms * bytes_per_ms;
+        auto now = std::chrono::steady_clock::now();
+        if (now - window_start >= std::chrono::seconds(1)) {
+            printf("[SNP AUDIO] %u Hz: %zu frames in %zu chunks (%zu-%zu), queue %zu-%zu ms, empty %zu, dropped %zu\n",
+                game_frequency, frames, chunks, min_chunk, max_chunk, min_queued / bytes_per_ms, max_queued / bytes_per_ms, empty, dropped);
+            fflush(stdout);
+            window_start = now;
+            frames = chunks = empty = dropped = max_chunk = max_queued = 0;
+            min_chunk = min_queued = SIZE_MAX;
+        }
+    }
     if (queued_bytes > audio_hard_cap_ms * bytes_per_ms) {
         printf("[SNP AUDIO] %zu ms queued, resyncing\n", queued_bytes / bytes_per_ms);
         fflush(stdout);
         SDL_ClearQueuedAudio(audio_device);
+        queued_chunks.clear();
+        queued_chunk_frames = 0;
     }
     else if (queued_bytes > audio_soft_cap_ms * bytes_per_ms) {
         return;
     }
     SDL_QueueAudio(audio_device, buffer.data(), static_cast<Uint32>(sample_count * sizeof(float)));
+    queued_chunks.push_back(sample_count / audio_channels);
+    queued_chunk_frames += sample_count / audio_channels;
 }
 
 static size_t get_frames_remaining() {
@@ -385,6 +459,28 @@ std::vector<recomp::GameEntry> supported_games = {
 // The message also goes to crash_log.txt (src/main/crash_handler.cpp), since
 // release builds have no console.
 void snp_report_fatal_error(const char* message);
+
+// Set by the runtime's ultramodern::quit() (librecomp/src/recomp.cpp) as soon
+// as quitting starts.
+extern std::atomic_bool exited;
+
+// Quitting joins the game, graphics and event threads before recomp::start
+// returns. On Windows that took long enough that the window stopped pumping
+// messages and Windows closed the game as hung ("stopped interacting with
+// Windows", a cross-thread hang). Saves are written as the game goes, so
+// nothing needs that orderly shutdown: once quitting starts, give it a few
+// seconds, then end the process (STATUS.md round 6).
+static void start_quit_watchdog() {
+    std::thread([] {
+        while (!exited.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        fflush(stdout);
+        fflush(stderr);
+        std::_Exit(EXIT_SUCCESS);
+    }).detach();
+}
 
 [[noreturn]] static void report_unhandled_exception_and_abort() {
     std::string message = "std::terminate() called with no active exception";
@@ -499,6 +595,8 @@ int main(int argc, char** argv) {
 
     // Our launcher menu takes either ROM (src/main/launcher.cpp).
     snp::register_launcher();
+
+    start_quit_watchdog();
 
     recomp::start({
         .argc = argc,
