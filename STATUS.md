@@ -269,3 +269,19 @@ START GAME now runs stage 1: the player, enemies, the HUD (score, time,
 life) and the aiming crosshair; shooting scores. The crosshair's two red
 guide lines reach past the 4:3 frame into the window's side areas (to look
 at with widescreen).
+
+## Round 4: the launcher takes either ROM
+
+First Windows test: the English ROM was refused with "This ROM is not the
+correct game". The frontend's default launcher only offers the first
+registered game (`supported_games[0]`, the Japanese ROM) and checks a
+loaded ROM against that entry's hash alone; the English entry was never
+offered. `src/main/launcher.cpp` replaces it: Load ROM tries the file
+against each supported game and stores it under the one it matches, and
+there's a start option per loaded ROM ("Start Game" with one, "Start Game
+(English)" / "Start Game (Japanese)" with both; Load Another ROM goes away
+once both are loaded). Controls, Settings, Mods and Exit are the
+frontend's own.
+
+Still to check: with the keyboard, the highlight starts on Controls rather
+than the start option.

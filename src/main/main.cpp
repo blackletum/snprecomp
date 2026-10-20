@@ -7,8 +7,8 @@
 // RecompFrontend loads itself), each with its license in assets/, and our
 // own icons (tools/make_icons.py).
 //
-// Not done yet: no texture-pack content type and no launcher menu
-// customization (the library's default_launcher_init_callback runs).
+// The launcher menu is our own (src/main/launcher.cpp), so it can take
+// either supported ROM. Not done yet: no texture-pack content type.
 
 #include <algorithm>
 #include <cstdio>
@@ -70,6 +70,7 @@ void register_snp_overlays();
 
 namespace snp {
     void apply_theme(); // theme.cpp
+    void register_launcher(); // launcher.cpp
 }
 
 static const std::string program_name = "Sin and Punishment Recompiled";
@@ -496,8 +497,8 @@ int main(int argc, char** argv) {
         .get_game_thread_name = get_game_thread_name,
     };
 
-    // recompui's own default launcher menu is used -- no
-    // register_launcher_init_callback call here (see file-level comment).
+    // Our launcher menu takes either ROM (src/main/launcher.cpp).
+    snp::register_launcher();
 
     recomp::start({
         .argc = argc,
