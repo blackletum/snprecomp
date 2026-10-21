@@ -33,7 +33,7 @@
 
 namespace snp {
     void interp_new_frame(); // interpolation.cpp
-    uint32_t interp_matrix_id(uint32_t addr);
+    uint32_t interp_matrix_id(uint32_t addr, bool& numbered);
 }
 
 namespace {
@@ -222,14 +222,18 @@ namespace {
     // up to cos 0.88 apart), and blending the rotation, scale and skew it got
     // separately warped coats and limbs on in-between frames. Untagged ones keep
     // RT64's automatic settings. Vertices and texture coordinates are skipped.
-    uint32_t matrix_group_params(bool tagged) {
+    uint32_t matrix_group_params(bool tagged, bool numbered) {
         constexpr uint32_t interpolate = 1, automatic = 2;
         const uint32_t motion = tagged ? interpolate : automatic;
-        // Repeats of an ID (enemies of one kind can share an animation pose,
-        // so their joints share IDs) are paired by closeness, not in drawing
-        // order: the depth sort swapped them now and then (the winged insects
-        // in stage 2). Different IDs are still never paired.
-        const uint32_t order = 1u; // G_EX_ORDER_AUTO
+        // An ID with its skeleton's instance number is the only one in the
+        // frame and is paired with last frame's directly (G_EX_ORDER_LINEAR).
+        // Repeats of an ID without one (enemies of one kind sharing a pose)
+        // are paired by closeness (G_EX_ORDER_AUTO), not in drawing order:
+        // the depth sort swapped them now and then. Automatic ordering only
+        // pairs matrices whose draw calls look the same in both frames, so a
+        // numbered one paired that way went unpaired whenever its calls
+        // changed and snapped to its new place (whole insects jittered).
+        const uint32_t order = numbered ? 0u : 1u;
         return (0u << 0) |   // no push
             (0u << 1) |      // modelview
             ((tagged ? 0u : 1u) << 2) | // decompose (untagged only)
@@ -251,12 +255,13 @@ namespace {
         if (interp_entry >= interp_entries) {
             return;
         }
-        uint32_t id = snp::interp_matrix_id(resolve(w1));
+        bool numbered = false;
+        uint32_t id = snp::interp_matrix_id(resolve(w1), numbered);
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
             { interp_entry == 0 ? 0xE0525464u : G_NOOP << 24, interp_entry == 0 ? 0x10000064u : 0u }, // gEXEnable, once a frame
             { 0x6400000C, id }, // gEXMatrixGroup
-            { matrix_group_params(id != G_EX_ID_AUTO), 0 },
+            { matrix_group_params(id != G_EX_ID_AUTO, numbered), 0 },
             { w0, w1 }, // the game's matrix load
             { 0xDF000000, 0 },
         };

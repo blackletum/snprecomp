@@ -200,8 +200,11 @@ namespace snp {
         }
     }
 
-    // The ID recorded for the matrix at addr, or 0xFFFFFFFF (automatic).
-    uint32_t interp_matrix_id(uint32_t addr) {
+    // The ID recorded for the matrix at addr, or 0xFFFFFFFF (automatic);
+    // numbered tells whether it includes its instance's number (and so is
+    // the only one of its kind in the frame).
+    uint32_t interp_matrix_id(uint32_t addr, bool& numbered) {
+        numbered = false;
         auto it = matrices.find(addr & 0x1FFFFFFF);
         if (it == matrices.end() || generation - it->second.generation > 2) {
             return 0xFFFFFFFF;
@@ -213,6 +216,7 @@ namespace snp {
         if (!instances_off && inst != instances.end() && inst->second.key != 0) {
             uint32_t n = instance_number(inst->second);
             id = (uint32_t)(((uint64_t)id << 32 | n) * 0x9E3779B97F4A7C15ull >> 33);
+            numbered = true;
         }
         return id;
     }

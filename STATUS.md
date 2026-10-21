@@ -584,6 +584,15 @@ the one beside it. Logged in that scene: an instance's match is now its own
 last position (about 17 units a frame against 130+ to the next nearest),
 apart from insects flying in even lines, which all shift together.
 
+Numbered IDs are now paired directly (`G_EX_ORDER_LINEAR`); only un-numbered
+ones keep `G_EX_ORDER_AUTO`. Automatic ordering pairs a matrix only with one
+whose draw call looks the same in both frames, and with unique IDs that left
+whole insects unpaired, snapping to their new place on in-between frames.
+Logged in the swarm: tagged matrices left unpaired went from about 48 of 104
+a frame to about 3 of 97. (`SNP_INTERP_INSTANCES=0` turns the numbering off
+for comparing; `SNP_PACING_LOG=1` writes `snp_pacing.log` and
+`snp_present.log` with frame pacing and present times.)
+
 The crosshair's vertical line runs the full height, so it started in the
 HUD band and was pinned to an edge when the reticle was off centre; HUD
 elements must now also end above y 80.

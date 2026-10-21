@@ -1,3 +1,34 @@
+--- a/src/hle/rt64_present_queue.cpp
++++ b/src/hle/rt64_present_queue.cpp
+@@ -4,6 +4,9 @@
+ 
+ #include "rt64_present_queue.h"
+ 
++#include <chrono>
++#include <cstdio>
++
+ #include "common/rt64_thread.h"
+ #include "rhi/rt64_render_hooks.h"
+ 
+@@ -403,6 +406,18 @@ namespace RT64 {
+                 presentTimestamp = Timer::current();
+                 swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
+                 presentProfiler.logAndRestart();
++
++                // Sin and Punishment recomp: with SNP_PACING_LOG=1, when each frame is handed to the swap chain and
++                // when that call returns (snp_present.log), to see whether frames reach the display evenly.
++                static FILE *presentLog = getenv("SNP_PACING_LOG") ? fopen("snp_present.log", "w") : nullptr;
++                if (presentLog != nullptr) {
++                    static const Timestamp presentStart = presentTimestamp;
++                    const Timestamp now = Timer::current();
++                    const double issued = std::chrono::duration<double, std::milli>(presentTimestamp - presentStart).count();
++                    const double returned = std::chrono::duration<double, std::milli>(now - presentStart).count();
++                    fprintf(presentLog, "%.3f %.3f frame %u of %u wait %d\n", issued, returned, i, framesToPresent, int(presentWaitEnabled));
++                    fflush(presentLog);
++                }
+             }
+         }
+     }
 --- a/src/hle/rt64_workload_queue.cpp
 +++ b/src/hle/rt64_workload_queue.cpp
 @@ -4,6 +4,9 @@
