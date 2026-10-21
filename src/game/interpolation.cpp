@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
@@ -207,7 +208,9 @@ namespace snp {
         }
         uint32_t id = it->second.id;
         auto inst = instances.find(it->second.instance);
-        if (inst != instances.end() && inst->second.key != 0) {
+        // SNP_INTERP_INSTANCES=0 leaves the instance number out (for comparing).
+        static const bool instances_off = [] { const char* v = std::getenv("SNP_INTERP_INSTANCES"); return v && v[0] == '0'; }();
+        if (!instances_off && inst != instances.end() && inst->second.key != 0) {
             uint32_t n = instance_number(inst->second);
             id = (uint32_t)(((uint64_t)id << 32 | n) * 0x9E3779B97F4A7C15ull >> 33);
         }
