@@ -22,6 +22,7 @@
 // render modes are printed as they're walked.
 #include <algorithm>
 #include <chrono>
+#include <vector>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -33,7 +34,9 @@
 
 namespace snp {
     void interp_new_frame(); // interpolation.cpp
-    uint32_t interp_matrix_id(uint32_t addr, bool& numbered);
+    uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance);
+    void interp_number_instances(const std::vector<uint32_t>& drawn);
+    uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
 }
 
 namespace {
@@ -251,25 +254,59 @@ namespace {
             (automatic << 24); // look-at
     }
 
+    // Matrix loads tagged this frame that belong to a skeleton instance: the
+    // entry and the instance. Their IDs get the instance's number once the
+    // whole display list has been walked (number_tagged_instances).
+    struct InstanceTag {
+        uint32_t entry;
+        uint32_t id;
+        uint32_t instance;
+    };
+    std::vector<InstanceTag> instance_tags;
+
     void tag_matrix(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         if (interp_entry >= interp_entries) {
             return;
         }
-        bool numbered = false;
-        uint32_t id = snp::interp_matrix_id(resolve(w1), numbered);
+        uint32_t instance = 0;
+        uint32_t id = snp::interp_matrix_id(resolve(w1), instance);
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
             { interp_entry == 0 ? 0xE0525464u : G_NOOP << 24, interp_entry == 0 ? 0x10000064u : 0u }, // gEXEnable, once a frame
             { 0x6400000C, id }, // gEXMatrixGroup
-            { matrix_group_params(id != G_EX_ID_AUTO, numbered), 0 },
+            { matrix_group_params(id != G_EX_ID_AUTO, false), 0 },
             { w0, w1 }, // the game's matrix load
             { 0xDF000000, 0 },
         };
         for (uint32_t i = 0; i < 5; i++) {
             set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
         }
+        if (instance != 0) {
+            instance_tags.push_back({ entry, id, instance });
+        }
         interp_entry++;
         set_command(rdram, addr, 0xDE000000, entry);
+    }
+
+    // After the walk: number the skeleton instances this display list draws
+    // (all of them at once, matched to the ones drawn last time) and put the
+    // numbers into their matrices' IDs.
+    void number_tagged_instances(uint8_t* rdram) {
+        if (instance_tags.empty()) {
+            return;
+        }
+        std::vector<uint32_t> drawn;
+        for (const InstanceTag& tag : instance_tags) {
+            drawn.push_back(tag.instance);
+        }
+        std::sort(drawn.begin(), drawn.end());
+        drawn.erase(std::unique(drawn.begin(), drawn.end()), drawn.end());
+        snp::interp_number_instances(drawn);
+        for (const InstanceTag& tag : instance_tags) {
+            set_command(rdram, tag.entry + 8, 0x6400000C, snp::interp_numbered_id(tag.id, tag.instance));
+            set_command(rdram, tag.entry + 16, matrix_group_params(true, true), 0);
+        }
+        instance_tags.clear();
     }
 
     // Texture rectangles at higher resolutions. HUD text and numbers are drawn
@@ -694,8 +731,10 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     hud_bank = (hud_bank + 1) % hud_banks;
     hud_entry = 0;
     fill_run_count = 0;
+    instance_tags.clear();
     walk(rdram, dl, 0, widen, true);
     end_fill_run(rdram);
+    number_tagged_instances(rdram);
     // Switching from Expand back to Original leaves the wide picture in the
     // strips outside the game's 4:3 inset, which the game never clears (black
     // from boot on the N64): the first frames after the switch clear the whole

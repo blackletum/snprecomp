@@ -593,6 +593,19 @@ a frame to about 3 of 97. (`SNP_INTERP_INSTANCES=0` turns the numbering off
 for comparing; `SNP_PACING_LOG=1` writes `snp_pacing.log` and
 `snp_present.log` with frame pacing and present times.)
 
+Two more causes of whole insects jumping: an instance's kind was the key of
+its first matrix, and which mesh comes first changes from frame to frame (the
+same insect showed up as three kinds in three frames, getting a new number
+each time); kinds now come from the walker entry points' skeleton and
+animation arguments. And instances were batched by the task they were built
+in, which can hold two frames' builds; now, once a display list has been
+walked, exactly the instances it draws are numbered and their IDs rewritten in
+the scratch entries. Logged in the swarm: tagged IDs missing from the previous
+frame went from about 4 a frame to about 0.6 (enemies appearing). With the
+pacing log a user's 144 Hz machine showed a steady 30 fps, 5-5-5-5-4
+in-between frames and presents 6.95 ms apart; the cutscene camera shake is
+there at Original too (the game's own).
+
 The crosshair's vertical line runs the full height, so it started in the
 HUD band and was pinned to an edge when the reticle was off centre; HUD
 elements must now also end above y 80.

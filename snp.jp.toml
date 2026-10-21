@@ -123,27 +123,28 @@ text = "{ extern void snp_interp_matrix(uint32_t, uint32_t, uint32_t, uint32_t, 
 # Where a skeleton starts being drawn (func_80033128 and func_80033170 for
 # func_80032F2C, func_80033A40 and func_80033AC4 for func_80033758): enemies
 # of a kind in a group can share one pose, so each skeleton drawn is told
-# apart as an instance ($a0 at the matrix hooks above is the float matrix,
-# its translation where the instance is).
+# apart as an instance, of the kind its arguments ($a0, $a1: the skeleton and
+# its animation) say ($a0 at the matrix hooks above is the float matrix, its
+# translation where the instance is).
 [[patches.hook]]
 func = "func_80033128"
 before_vram = 0x80033128
-text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
 [[patches.hook]]
 func = "func_80033170"
 before_vram = 0x80033170
-text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
 [[patches.hook]]
 func = "func_80033A40"
 before_vram = 0x80033A40
-text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
 [[patches.hook]]
 func = "func_80033AC4"
 before_vram = 0x80033AC4
-text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
