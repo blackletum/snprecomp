@@ -259,6 +259,30 @@ namespace {
         set_command(rdram, addr, 0xDE000000, entry);
     }
 
+    // Texture rectangles at higher resolutions. HUD text and numbers are drawn
+    // 1:1 from a font sheet, each glyph's rectangle starting right at its
+    // first texel: horizontally the previous glyph sits next to it, and
+    // vertically the glyphs start at row -1, which the 8-row wrap turns into
+    // the blank bottom row. At the N64's resolution every pixel samples at or
+    // after the start. Upscaled, the top and left edge pixels can land a hair
+    // before it, depending on the GPU and driver's rounding (seen on Direct3D
+    // 12): the previous glyph's last column and the glyph's own row 6 showed
+    // as thin lines left of and above HUD text and the floating hit counts.
+    // 1:1 rectangles start 1/32 texel later (the format's smallest step): at
+    // the N64's resolution each pixel still samples the same texel.
+    void nudge_rect_start(uint8_t* rdram, uint32_t addr) {
+        uint32_t h0 = (uint32_t)MEM_W(0, (gpr)(int32_t)(addr + 8));  // RDPHALF_1: s, t (S10.5)
+        uint32_t h1 = (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + 8));
+        uint32_t h2 = (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + 16)); // RDPHALF_2: dsdx, dtdy (S5.10)
+        int32_t s = (int16_t)(h1 >> 16), t = (int16_t)h1;
+        if ((h2 >> 16) != 1 << 10 || (h2 & 0xFFFF) != 1 << 10 || (s & 31) != 0 || (t & 31) != 0) {
+            return; // scaled, or already off a texel boundary (including a rectangle nudged before)
+        }
+        s += 1;
+        t += 1;
+        set_command(rdram, addr + 8, h0, ((uint32_t)(uint16_t)s << 16) | (uint16_t)t);
+    }
+
     void log_command(int depth, uint8_t* rdram, uint32_t w0, uint32_t w1) {
         auto rect = [&](const char* what, uint32_t ul, uint32_t lr) {
             printf("[DL] %*s%s %.2f,%.2f - %.2f,%.2f\n", depth, "", what,
@@ -399,6 +423,7 @@ namespace {
                     }
                     break;
                 case 0xE4: // G_TEXRECT: two more words follow (RDPHALF_1, RDPHALF_2)
+                    nudge_rect_start(rdram, addr);
                     addr += 16;
                     break;
                 case 0xDA: // G_MTX
