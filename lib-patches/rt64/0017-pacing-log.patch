@@ -1,0 +1,47 @@
+--- a/src/hle/rt64_workload_queue.cpp
++++ b/src/hle/rt64_workload_queue.cpp
+@@ -4,6 +4,9 @@
+ 
+ #include "rt64_workload_queue.h"
+ 
++#include <chrono>
++#include <cstdio>
++
+ #include "common/rt64_thread.h"
+ 
+ #include "rt64_present_queue.h"
+@@ -978,6 +981,7 @@ namespace RT64 {
+                 bool velocityUploaderUsed = false;
+                 bool tileInterpolationUsed = false;
+                 bool lookAtInterpolationUsed = false;
++                bool ticksReset = false;
+                 if (requiresFrameMatching) {
+                     matchingProfiler.reset();
+                     matchingProfiler.start();
+@@ -989,6 +993,7 @@ namespace RT64 {
+                     generateInterpolatedFrames = !workload.paused && displayRateAboveOriginal && !interpolationTargetKey.isEmpty();
+ 
+                     const bool resetTicks = !generateInterpolatedFrames || (originalRateForTicks != workload.viOriginalRate) || (displayRateForTicks != workloadConfig.targetRate) || !displayRateAboveOriginal;
++                    ticksReset = resetTicks;
+                     if (resetTicks) {
+                         logicalTicks = 0;
+                         displayTicks = 0;
+@@ -1152,6 +1157,18 @@ namespace RT64 {
+                     framesRendered++;
+                 }
+ 
++                // Sin and Punishment recomp: SNP_PACING_LOG=1 writes each game frame's frame pacing to snp_pacing.log
++                // (the game's rate, the display rate, the frames generated and rendered, skips and timing resets),
++                // to see on someone's machine why motion is uneven at the display rate.
++                static FILE *pacingLog = getenv("SNP_PACING_LOG") ? fopen("snp_pacing.log", "w") : nullptr;
++                if (pacingLog != nullptr) {
++                    static const auto pacingStart = std::chrono::steady_clock::now();
++                    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pacingStart).count();
++                    fprintf(pacingLog, "%.2f rate %u target %u frames %u rendered %u skipped %d reset %d paused %d interp %d\n", ms, workload.viOriginalRate, workloadConfig.targetRate,
++                        displayFrames, framesRendered, int(skippedFrames), int(ticksReset), int(workload.paused), int(generateInterpolatedFrames));
++                    fflush(pacingLog);
++                }
++
+                 // Set the skipped parameter on the frame counter if the workload wasn't skipped but some of its frames were.
+                 if (skippedFrames && !skipWorkloadNow) {
+                     {
