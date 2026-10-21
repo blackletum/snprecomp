@@ -457,19 +457,28 @@ at it). The title now has black side bars that match the art.
 ### Limbs jumping at high framerates
 
 Characters are drawn limb by limb: a modelview matrix load, then the limb's
-display list with its vertex data in segment 5 (static model data, the same
-addresses every frame). The order of the limbs changes from frame to frame
-(two limbs swapped places between logged frames), and without IDs RT64 pairs
-matrices between frames by guessing, so a swap paired the wrong limbs and
-they jumped on the in-between frames (the owner's video). The display list
-walker (`src/game/display_list.cpp`) now puts a `gEXMatrixGroup` in front of
-every modelview load: an ID from the display list and segment 5 that follow
-it (plus a count for repeats within the frame), with position, rotation and
-scale always interpolated, or RT64's automatic matching when nothing follows
-to name it. The load becomes a call to a short list in unused RAM
-(`0x80700000`, four banks) holding the group and the original load.
-`SNP_INTERP_TAGS=0` turns it off for comparison. Not yet confirmed by the
-owner.
+display list. The limbs are drawn from depth-sorted buckets
+(`func_80030448`), so their order changes from frame to frame, and RT64
+pairs matrices between frames by guessing, so limbs jumped on the
+in-between frames (fine at Original framerate, the owner confirmed).
+
+The first fix took the ID from the limb's display list and vertex data.
+That made it worse: several soldiers share one model, so two soldiers' arms
+had the same ID apart from a draw-order count, and when the order changed
+an arm flew between soldiers on the in-between frames (the owner's video).
+
+Now the ID comes from the game's skeleton: `func_80032F2C` walks a
+character's joints with `$s2` pointing at the character's pose entry for the
+joint (0x20 bytes each, unique per character and joint, the same every
+frame), and each mesh's matrix is built in `func_80032AA0` (`guMtxF2L` at
+`0x80032C88`). Hooks record the matrix with its joint and mesh
+(`src/game/interpolation.cpp`); the display list walker puts a
+`gEXMatrixGroup` with that ID in front of the matrix's load, and RT64's
+automatic matching in front of every other modelview load. A frame's
+matrices are built two graphics tasks before its display list goes out, and
+the pools are reused, so a recorded matrix counts for two tasks. About a
+third to most of the loads in character scenes get an ID. `SNP_INTERP_TAGS=0`
+turns the tagging off for comparison.
 
 ### Default controller layout
 

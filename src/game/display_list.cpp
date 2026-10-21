@@ -24,12 +24,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
-#include <unordered_map>
 
 #include "recomp.h"
 
 #include "snp_config.h"
 #include "snp_recomp_hooks.h"
+
+namespace snp {
+    void interp_new_frame(); // interpolation.cpp
+    uint32_t interp_matrix_id(uint32_t addr);
+}
 
 namespace {
     // G_SETSCISSOR / G_FILLRECT words: coordinates are 10.2 fixed point.
@@ -187,18 +191,13 @@ namespace {
         return addr >= prefix_area && addr < prefix_area + prefix_slots * prefix_bytes;
     }
 
-    // Interpolation IDs (Refresh Rate above the game's 30 fps). Characters are
-    // drawn limb by limb, each a modelview matrix load followed by the limb's
-    // display list, and the order of the limbs changes from frame to frame
-    // (depth sorting). Without IDs RT64 pairs each matrix with one in the
-    // previous frame by guessing, and a swap paired the wrong limbs: pieces of
-    // models jumped about on the in-between frames. Every modelview load gets
-    // a matrix group in front of it: an ID made from what it draws (the next
-    // display list and the vertex data in segment 5, both the model's own and
-    // the same every frame, plus how many times that pair came before in this
-    // frame), or RT64's automatic matching when nothing follows to name it
-    // (sprites, the 2D projection). The load is replaced with a call to a short
-    // list in unused RAM holding the group and the original load.
+    // Interpolation IDs (Refresh Rate above the game's 30 fps). Every
+    // modelview load gets a matrix group in front of it: a character limb's
+    // ID, recorded as its matrix was built (src/game/interpolation.cpp), or
+    // RT64's automatic matching for everything else (scenery, sprites, the 2D
+    // projection), so no load inherits a limb's group. The load is replaced
+    // with a call to a short list in unused RAM holding the group and the
+    // original load.
     constexpr uint32_t interp_area = 0x80700000;
     constexpr uint32_t interp_banks = 4;
     constexpr uint32_t interp_bank_bytes = 0x10000;
@@ -208,7 +207,6 @@ namespace {
     bool interp_tags = true;
     uint32_t interp_bank = 0;
     uint32_t interp_entry = 0;
-    std::unordered_map<uint64_t, uint32_t> interp_seen;
 
     bool in_interp_area(uint32_t addr) {
         return addr >= interp_area && addr < interp_area + interp_banks * interp_bank_bytes;
@@ -240,48 +238,11 @@ namespace {
             (automatic << 24); // look-at
     }
 
-    // What the matrix load at addr draws: the next display list before another
-    // matrix load or the list's end, with segment 5 as set on the way.
-    uint64_t matrix_key(uint8_t* rdram, uint32_t addr) {
-        uint32_t seg5 = segments[5];
-        for (int i = 0; i < 32; i++) {
-            addr += 8;
-            uint32_t w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
-            uint32_t w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
-            switch (w0 >> 24) {
-                case 0xDA: case 0xDF: case 0x01:
-                    return 0;
-                case 0xDB:
-                    if (((w0 >> 16) & 0xFF) == 6 && (w0 & 0xFFFF) == 5 * 4) {
-                        seg5 = w1;
-                    }
-                    break;
-                case 0xDE:
-                    if (in_interp_area(w1) || ((w0 >> 16) & 0xFF) != 0) {
-                        return 0;
-                    }
-                    return ((uint64_t)w1 << 32) | seg5;
-                case 0xE4:
-                    addr += 16;
-                    break;
-                default:
-                    break;
-            }
-        }
-        return 0;
-    }
-
     void tag_matrix(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         if (interp_entry >= interp_entries) {
             return;
         }
-        uint32_t id = G_EX_ID_AUTO;
-        uint64_t key = matrix_key(rdram, addr);
-        if (key != 0) {
-            uint32_t count = interp_seen[key]++;
-            uint64_t h = (key ^ ((uint64_t)count << 48)) * 0x9E3779B97F4A7C15ull;
-            id = (uint32_t)(h >> 32) & 0x7FFFFFFF;
-        }
+        uint32_t id = snp::interp_matrix_id(resolve(w1));
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
             { interp_entry == 0 ? 0xE0525464u : G_NOOP << 24, interp_entry == 0 ? 0x10000064u : 0u }, // gEXEnable, once a frame
@@ -511,7 +472,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     interp_tags = !tags_off;
     interp_bank = (interp_bank + 1) % interp_banks;
     interp_entry = 0;
-    interp_seen.clear();
+    snp::interp_new_frame();
     if (log_frame) {
         static const auto start = std::chrono::steady_clock::now();
         double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();

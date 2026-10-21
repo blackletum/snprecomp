@@ -67,6 +67,34 @@ func = "func_80029070"
 before_vram = 0x8002917C
 text = "{ extern float snp_cull_width_scale(void); ctx->f0.fl *= snp_cull_width_scale(); } // snp: widescreen culling"
 
+# --- Interpolation IDs for character limbs ---------------------------------
+# Characters are posed by func_80032F2C, which walks a skeleton: $s2 is the
+# character's pose entry for the current joint (0x20 bytes per joint, the same
+# address every frame). For each joint it calls func_80032CDC or
+# func_80032D94, which build each mesh's matrix in func_80032AA0 (guMtxF2L at
+# 0x80032C88: $a1 the new matrix, $s1 the mesh). The matrix is recorded with
+# its joint and mesh, and the display list pass tags its load with them
+# (src/game/interpolation.cpp, src/game/display_list.cpp).
+[[patches.hook]]
+func = "func_80032F2C"
+before_vram = 0x80033038
+text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint((uint32_t)ctx->r18); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80032F2C"
+before_vram = 0x80033064
+text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint((uint32_t)ctx->r18); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80032F2C"
+before_vram = 0x8003306C
+text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint(0); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80032AA0"
+before_vram = 0x80032C88
+text = "{ extern void snp_interp_matrix(uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r17); } // snp: interpolation"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass
