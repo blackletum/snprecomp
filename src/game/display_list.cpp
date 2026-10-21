@@ -60,6 +60,7 @@ namespace {
     uint32_t first_cimg_w0, first_cimg_w1;
     bool seen_draw;
     bool starts_with_picture;
+    bool effect_area_scissor; // the game's own 0,8 - 320,231 scissor was set
 
     void set_command(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         MEM_W(0, (gpr)(int32_t)addr) = (int32_t)w0;
@@ -143,6 +144,43 @@ namespace {
             addr += 8;
         }
         return prefix;
+    }
+
+    // The zoom into the title draws the title picture over the whole screen,
+    // then the zoom effect only over rows 8 - 231 (its scissor). Rows 0 - 7
+    // and 232 - 239 are outside the game's picture area, black on the N64
+    // (and at Original aspect), but Expand shows all 240 rows, so they kept
+    // the sharp title picture, flashing against the zoom. In Expand, frames
+    // that start with a full-screen picture and set that scissor end with
+    // those rows filled black: the frame's closing full sync (the renderer
+    // ignores anything drawn after it) is replaced with a branch to a short
+    // list that fills them, syncs and ends.
+    constexpr uint32_t suffix_area = 0x807F3000;
+    constexpr uint32_t suffix_slots = 8;
+    constexpr uint32_t suffix_bytes = 8 * 8;
+    uint32_t suffix_slot = 0;
+    constexpr uint32_t effect_scissor_w0 = (G_SETSCISSOR << 24) | xy(0, 8);
+    constexpr uint32_t effect_scissor_w1 = xy(320, 231);
+
+    void black_edge_rows(uint8_t* rdram, uint32_t fullsync_addr) {
+        uint32_t suffix = suffix_area + suffix_slot * suffix_bytes;
+        suffix_slot = (suffix_slot + 1) % suffix_slots;
+        const uint32_t commands[][2] = {
+            { 0xE3000A01, 0x00300000 }, // cycle type: fill
+            { first_cimg_w0, first_cimg_w1 }, // the screen (the frame may end drawing elsewhere)
+            { full_scissor_w0, full_scissor_w1 },
+            { 0xF7000000, 0x00010001 }, // fill color: black
+            { (G_FILLRECT << 24) | xy(319, 7), xy(0, 0) },
+            { (G_FILLRECT << 24) | xy(319, 239), xy(0, 232) },
+            { 0xE9000000, 0 }, // the game's full sync, moved after the fills
+            { 0xDF000000, 0 },
+        };
+        uint32_t addr = suffix;
+        for (const auto& c : commands) {
+            set_command(rdram, addr, c[0], c[1]);
+            addr += 8;
+        }
+        set_command(rdram, fullsync_addr, 0xDE010000, suffix);
     }
 
     bool is_prefix(uint32_t addr) {
@@ -342,7 +380,8 @@ namespace {
         }
     }
 
-    void walk(uint8_t* rdram, uint32_t addr, int depth, bool widen) {
+    // top: the list is the frame's own, or one it branched to (its end ends the frame).
+    void walk(uint8_t* rdram, uint32_t addr, int depth, bool widen, bool top) {
         for (int n = 0; n < 200000; n++, addr += 8) {
             uint32_t w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
             uint32_t w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
@@ -407,16 +446,30 @@ namespace {
                 log_command(depth, rdram, w0, w1);
             }
             switch (w0 >> 24) {
-                case 0xDE: // G_DL
+                case 0xDE: { // G_DL
+                    bool branch = ((w0 >> 16) & 0xFF) != 0; // no return
                     if (depth < 10) {
-                        walk(rdram, resolve(w1), depth + 1, widen);
+                        walk(rdram, resolve(w1), depth + 1, widen, top && branch);
                     }
-                    if ((w0 >> 16) & 0xFF) { // branch: no return
+                    if (branch) {
                         return;
                     }
                     break;
+                }
                 case 0xDF: // G_ENDDL
                     return;
+                case 0xE9: // G_RDPFULLSYNC: the end of the frame's drawing
+                    if (top && widen && starts_with_picture && effect_area_scissor && first_cimg_w0 != 0 &&
+                        !(addr >= suffix_area && addr < suffix_area + suffix_slots * suffix_bytes)) {
+                        black_edge_rows(rdram, addr);
+                        return;
+                    }
+                    break;
+                case 0xED: // G_SETSCISSOR
+                    if (w0 == effect_scissor_w0 && w1 == effect_scissor_w1) {
+                        effect_area_scissor = true;
+                    }
+                    break;
                 case 0xDB: // G_MOVEWORD
                     if (((w0 >> 16) & 0xFF) == 6) { // G_MW_SEGMENT
                         segments[((w0 & 0xFFFF) / 4) & 0xF] = w1 & 0x00FFFFFF;
@@ -470,7 +523,8 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     first_cimg_w0 = 0;
     seen_draw = false;
     starts_with_picture = false;
-    walk(rdram, dl, 0, widen);
+    effect_area_scissor = false;
+    walk(rdram, dl, 0, widen, true);
     if (widen && starts_with_picture && first_cimg_w0 != 0) {
         MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl);
     }
