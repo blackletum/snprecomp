@@ -482,11 +482,19 @@ namespace {
         }
         auto find = [&](uint32_t i) { while (shape[i] != i) i = shape[i] = shape[shape[i]]; return i; };
         constexpr uint32_t touch = 1 * 4;
+        // The crosshair's lines (the full height and the full width) join
+        // nothing: when the reticle moved right, its vertical line crossed the
+        // life bar, the two became one element too tall to be HUD, and the bar
+        // dropped back to its 4:3 place; aimed high, the horizontal one would
+        // join the whole top HUD into one element.
+        auto joins = [&](const HudRect& r) {
+            return r.uly < hud_band_bottom && r.lry < hud_element_bottom && r.lrx - r.ulx < 240 * 4;
+        };
         for (uint32_t i = 0; i < n; i++) {
             for (uint32_t j = i + 1; j < n; j++) {
                 const HudRect& a = fill_run[i];
                 const HudRect& b = fill_run[j];
-                if (a.ulx <= b.lrx + touch && b.ulx <= a.lrx + touch && a.uly <= b.lry + touch && b.uly <= a.lry + touch) {
+                if (joins(a) && joins(b) && a.ulx <= b.lrx + touch && b.ulx <= a.lrx + touch && a.uly <= b.lry + touch && b.uly <= a.lry + touch) {
                     shape[find(i)] = find(j);
                 }
             }
