@@ -559,3 +559,18 @@ stale ones).
 After Expand, the strips outside the game's 4:3 inset kept pieces of the
 wide picture (the game only clears the inset; on the N64 they're black from
 boot). The first six frames after switching back clear the whole screen.
+
+### Enemies of one kind jittering (stage 2's winged insects)
+
+Enemies of one kind can share an animation pose, so their joints share
+IDs, and RT64 paired repeats of an ID in drawing order: when the depth sort
+swapped two insects, their wings were paired with each other's on in-between
+frames. Tagged groups now use `G_EX_ORDER_AUTO`: repeats of an ID are paired
+by closeness (different IDs still never). Measured with temporary RT64
+logging in that scene: paired matrices changing a lot between frames went
+from about 50 a frame (the worst entry change 1.18) to about 18 (0.72, the
+fast-flapping wings themselves); the soldier scene is unchanged.
+
+The crosshair's vertical line runs the full height, so it started in the
+HUD band and was pinned to an edge when the reticle was off centre; HUD
+elements must now also end above y 80.

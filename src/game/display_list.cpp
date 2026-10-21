@@ -225,7 +225,11 @@ namespace {
     uint32_t matrix_group_params(bool tagged) {
         constexpr uint32_t interpolate = 1, automatic = 2;
         const uint32_t motion = tagged ? interpolate : automatic;
-        const uint32_t order = tagged ? 0u : 1u; // G_EX_ORDER_LINEAR, G_EX_ORDER_AUTO
+        // Repeats of an ID (enemies of one kind can share an animation pose,
+        // so their joints share IDs) are paired by closeness, not in drawing
+        // order: the depth sort swapped them now and then (the winged insects
+        // in stage 2). Different IDs are still never paired.
+        const uint32_t order = 1u; // G_EX_ORDER_AUTO
         return (0u << 0) |   // no push
             (0u << 1) |      // modelview
             ((tagged ? 0u : 1u) << 2) | // decompose (untagged only)
