@@ -32,6 +32,23 @@ says whether yours is one of these.
 Add a blank portable.txt in the application's folder to make portable if you
 want to save settings locally.
 
+## Steam Deck and Linux
+
+There's a native Linux build (`tools/package-linux.sh` makes the package).
+It needs a 64-bit Linux with glibc 2.38 or newer, SDL2, GTK 3, FreeType and
+Vulkan, all of which SteamOS has. Not yet tested on a real Steam Deck.
+
+On a Steam Deck:
+1. In Desktop Mode, extract the `.tar.gz` somewhere in your home folder.
+2. In Steam, add `SnPRecompiled.sh` from that folder as a non-Steam game.
+3. Start it from Gaming Mode. Keep Steam Input's default gamepad layout:
+   the game's default controls are twin-stick, moving with the left stick
+   (the N64 C buttons), aiming with the right stick, firing with the right
+   trigger.
+
+Settings and saves are in `~/.config/snprecomp` (or next to the game with
+`portable.txt`). The Windows build also runs under Proton.
+
 ## Planned
 
 - Higher framerates (interpolated) and widescreen, with the HUD anchored to
