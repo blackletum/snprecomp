@@ -473,6 +473,24 @@ namespace {
     uint32_t fill_run_count = 0;
 
 
+    // The crosshair's vertical line, with the reticle reaching into the wider
+    // view in Expand (snp.jp.toml): past the right of the 4:3 picture it's
+    // drawn beyond x 320, which the game's scissor cuts off, and past the
+    // left its x goes negative, which the rectangle's 12-bit coordinates wrap
+    // round to near 1024. It's drawn with the whole window as the scissor,
+    // a wrapped one moved back by 1024.
+    void place_crosshair_line(uint8_t* rdram, const HudRect& r) {
+        if (r.words != 1 || r.lry - r.uly < 200 * 4 || r.lrx - r.ulx > 8 * 4) {
+            return;
+        }
+        if (r.ulx >= 640 * 4) {
+            anchor_rect(rdram, r.addr, 1, origin_none, -1024 * 4);
+        }
+        else if (r.lrx > 320 * 4) {
+            anchor_rect(rdram, r.addr, 1, origin_none, 0);
+        }
+    }
+
     void end_fill_run(uint8_t* rdram) {
         uint32_t n = fill_run_count;
         fill_run_count = 0;
@@ -498,6 +516,9 @@ namespace {
                     shape[find(i)] = find(j);
                 }
             }
+        }
+        for (uint32_t i = 0; i < n; i++) {
+            place_crosshair_line(rdram, fill_run[i]);
         }
         for (uint32_t i = 0; i < n; i++) {
             if (find(i) != i) {

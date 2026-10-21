@@ -609,3 +609,16 @@ there at Original too (the game's own).
 The crosshair's vertical line runs the full height, so it started in the
 HUD band and was pinned to an edge when the reticle was off centre; HUD
 elements must now also end above y 80.
+
+### Reticle reach in Expand
+
+The reticle's offset from the screen centre is kept within -144 .. 144 (320
+units) by func_800AB924 (struct at $s2: x at +0x28, y at +0x2C within
+-104 .. 104), so in Expand enemies at the sides could be seen but not aimed
+at. In Expand the side limits are now 16 short of the wider screen's edges
+(hooks in snp.jp.toml, src/game/widescreen.cpp); Original is unchanged. Shots
+go to the reticle out there as well (the game turns its screen offset into a
+direction with its own projection, which Expand only shows more of). The
+crosshair's vertical line past the 4:3 picture is drawn beyond x 320 (cut by
+the game's scissor) or, on the left, at a negative x that wraps to near 1024:
+it's drawn with the whole window as scissor, a wrapped one moved back by 1024.

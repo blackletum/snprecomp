@@ -146,6 +146,23 @@ func = "func_80033AC4"
 before_vram = 0x80033AC4
 text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
+# --- Reticle reach in Expand -----------------------------------------------
+# func_800AB924 moves the reticle and keeps its offset from the screen centre
+# ($s2 + 0x28, in 320-wide screen units) within -144 .. 144: 16 short of the
+# 4:3 picture's edges. In Expand the view is wider, and enemies at the sides
+# could be seen but not aimed at: the limits (loaded into $v1, then stored as
+# the clamped value) are moved out to 16 short of the wider screen's edges
+# (src/game/widescreen.cpp).
+[[patches.hook]]
+func = "func_800AB924"
+before_vram = 0x800ABB74
+text = "{ extern uint32_t snp_reticle_limit_bits(int32_t); ctx->r3 = (int32_t)snp_reticle_limit_bits(-1); } // snp: reticle reach"
+
+[[patches.hook]]
+func = "func_800AB924"
+before_vram = 0x800ABB9C
+text = "{ extern uint32_t snp_reticle_limit_bits(int32_t); ctx->r3 = (int32_t)snp_reticle_limit_bits(1); } // snp: reticle reach"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass
