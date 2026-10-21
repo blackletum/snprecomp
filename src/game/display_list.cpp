@@ -20,6 +20,7 @@
 // 300) graphics task's color images, scissors, viewports, matrices, small
 // vertex loads, fill and texture rectangles, textures, colors, combine and
 // render modes are printed as they're walked.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -286,6 +287,166 @@ namespace {
         set_command(rdram, addr + 8, h0, ((uint32_t)(uint16_t)s << 16) | (uint16_t)t);
     }
 
+    // HUD anchoring in Expand, as btgarecomp does it: RT64 keeps 2D
+    // rectangles in the centred 4:3 area unless the display list anchors them
+    // to a screen edge (gEXSetRectAlign). The HUD is drawn after the game loads
+    // its fixed 2D projection (0x802C3AE0). Its top band, y < 40, has the
+    // score on the left (x 55 - 128), TIME in the middle and LIFE with its bar
+    // on the right (x 194 - 297). Rectangles lying entirely in that band are
+    // anchored by their centre: left of 128 to the left edge, right of 192 to
+    // the right, both 16 pixels further out (the original layout keeps a TV
+    // margin), the rest left centred. Each is replaced with a call to a short
+    // list that sets the alignment and a whole-window scissor (RT64 clips to
+    // the scissor, which is otherwise squeezed into the 4:3 area), draws the
+    // rectangle, and restores both. Lower things (the crosshair's lines,
+    // tutorial boxes, subtitles, the boss bar) are left alone.
+    constexpr uint32_t hud_projection = 0x802C3AE0;
+    constexpr uint32_t hud_area = 0x807A0000;
+    constexpr uint32_t hud_banks = 4;
+    constexpr uint32_t hud_bank_bytes = 0x8000;
+    constexpr uint32_t hud_entry_max = 16; // commands; a texture rectangle needs 13
+    constexpr uint32_t hud_entry_bytes = hud_entry_max * 8;
+    constexpr uint32_t hud_entries = hud_bank_bytes / hud_entry_bytes;
+    constexpr uint32_t hud_band_bottom = 40 * 4; // 10.2
+    constexpr int32_t hud_margin = 16 * 4;
+    constexpr int32_t right_origin_shift = -320 * 4; // RT64 adds the width to right-anchored coordinates
+    constexpr uint32_t origin_left = 0x0, origin_right = 0x400, origin_none = 0x800;
+    bool in_hud = false;
+    uint32_t hud_bank = 0;
+    uint32_t hud_entry = 0;
+
+    bool in_hud_area(uint32_t addr) {
+        return addr >= hud_area && addr < hud_area + hud_banks * hud_bank_bytes;
+    }
+
+    // Which edge a rectangle (10.2 coordinates) in the top band is anchored
+    // to: true and the origin/offset, or false to leave it centred.
+    bool hud_origin(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t& origin, int32_t& offset) {
+        if (uly >= hud_band_bottom) {
+            return false;
+        }
+        uint32_t centre = (ulx + lrx) / 2;
+        if (centre < 128 * 4) {
+            origin = origin_left;
+            offset = -hud_margin;
+            return true;
+        }
+        if (centre > 192 * 4) {
+            origin = origin_right;
+            offset = right_origin_shift + hud_margin;
+            return true;
+        }
+        return false;
+    }
+
+    // addr: a G_TEXRECT (3 commands) or G_FILLRECT (1 command).
+    void anchor_rect(uint8_t* rdram, uint32_t addr, uint32_t words, uint32_t origin, int32_t offset) {
+        if (hud_entry >= hud_entries) {
+            return;
+        }
+        uint32_t entry = hud_area + hud_bank * hud_bank_bytes + hud_entry * hud_entry_bytes;
+        hud_entry++;
+        uint32_t commands[hud_entry_max][2];
+        uint32_t n = 0;
+        auto cmd = [&](uint32_t a, uint32_t b) { commands[n][0] = a; commands[n][1] = b; n++; };
+        cmd(0xE0525464, 0x10000064); // gEXEnable
+        cmd(0x64000017, 0);          // gEXPushScissor
+        cmd(0x64000005, (origin_left << 2) | (origin_right << 14)); // gEXSetScissor: the whole window
+        cmd(0, 240 * 4);
+        cmd(0x64000006, origin | (origin << 12)); // gEXSetRectAlign
+        cmd((uint32_t)(uint16_t)offset << 16, (uint32_t)(uint16_t)offset << 16);
+        for (uint32_t i = 0; i < words; i++) {
+            cmd((uint32_t)MEM_W(0, (gpr)(int32_t)(addr + i * 8)), (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + i * 8)));
+        }
+        cmd(0x64000006, origin_none | (origin_none << 12)); // back to unanchored
+        cmd(0, 0);
+        cmd(0x64000018, 0);          // gEXPopScissor
+        cmd(0xDF000000, 0);
+        for (uint32_t i = 0; i < n; i++) {
+            set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
+        }
+        set_command(rdram, addr, 0xDE000000, entry);
+        for (uint32_t i = 1; i < words; i++) {
+            set_command(rdram, addr + i * 8, G_NOOP << 24, 0);
+        }
+    }
+
+    // A HUD element is a run of rectangles drawn back to back (texture and
+    // fill rectangles, with only state changes between them) that touch or
+    // overlap, directly or through others: a string's glyphs, a number's
+    // digits, the life bar's frame and fill, the tutorial's box around it.
+    // Each is anchored as a whole by its bounds, so nothing comes apart, and a
+    // centred string stays centred. The crosshair's lines and the life bar
+    // come back to back but don't touch.
+    constexpr uint32_t max_fill_run = 64;
+    struct HudRect {
+        uint32_t addr, words, ulx, uly, lrx, lry;
+    };
+    HudRect fill_run[max_fill_run];
+    uint32_t fill_run_count = 0;
+
+    void add_hud_rect(uint32_t addr, uint32_t w0, uint32_t w1, uint32_t words) {
+        if (fill_run_count < max_fill_run) {
+            fill_run[fill_run_count++] = { addr, words, (w1 >> 12) & 0xFFF, w1 & 0xFFF, (w0 >> 12) & 0xFFF, w0 & 0xFFF };
+        }
+    }
+
+    void end_fill_run(uint8_t* rdram) {
+        uint32_t n = fill_run_count;
+        fill_run_count = 0;
+        uint32_t shape[max_fill_run];
+        for (uint32_t i = 0; i < n; i++) {
+            shape[i] = i;
+        }
+        auto find = [&](uint32_t i) { while (shape[i] != i) i = shape[i] = shape[shape[i]]; return i; };
+        constexpr uint32_t touch = 1 * 4;
+        for (uint32_t i = 0; i < n; i++) {
+            for (uint32_t j = i + 1; j < n; j++) {
+                const HudRect& a = fill_run[i];
+                const HudRect& b = fill_run[j];
+                if (a.ulx <= b.lrx + touch && b.ulx <= a.lrx + touch && a.uly <= b.lry + touch && b.uly <= a.lry + touch) {
+                    shape[find(i)] = find(j);
+                }
+            }
+        }
+        for (uint32_t i = 0; i < n; i++) {
+            if (find(i) != i) {
+                continue;
+            }
+            uint32_t ulx = 0xFFF, uly = 0xFFF, lrx = 0;
+            for (uint32_t j = 0; j < n; j++) {
+                if (find(j) == i) {
+                    ulx = std::min(ulx, fill_run[j].ulx);
+                    uly = std::min(uly, fill_run[j].uly);
+                    lrx = std::max(lrx, fill_run[j].lrx);
+                }
+            }
+            uint32_t origin;
+            int32_t offset;
+            if (!hud_origin(ulx, uly, lrx, origin, offset)) {
+                continue;
+            }
+            for (uint32_t j = 0; j < n; j++) {
+                if (find(j) == i) {
+                    anchor_rect(rdram, fill_run[j].addr, fill_run[j].words, origin, offset);
+                }
+            }
+        }
+    }
+
+    // Commands that may come between an element's rectangles.
+    bool is_fill_run_state(uint32_t op) {
+        switch (op) {
+            case 0xE2: case 0xE3: case 0xE6: case 0xE7: case 0xE8: // othermode, syncs
+            case 0xF7: case 0xFA: case 0xFB: case 0xFC:              // colours, combine
+            case 0xFD: case 0xF5: case 0xF4: case 0xF3: case 0xF2: case 0xF0: // textures, tiles
+            case 0xE1: case 0xF1:                                   // texture rectangle halves
+                return true;
+            default:
+                return false;
+        }
+    }
+
     void log_command(int depth, uint8_t* rdram, uint32_t w0, uint32_t w1) {
         auto rect = [&](const char* what, uint32_t ul, uint32_t lr) {
             printf("[DL] %*s%s %.2f,%.2f - %.2f,%.2f\n", depth, "", what,
@@ -350,6 +511,18 @@ namespace {
         for (int n = 0; n < 200000; n++, addr += 8) {
             uint32_t w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
             uint32_t w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            if ((w0 >> 24) == 0xDE && in_hud_area(w1)) {
+                // A HUD rectangle anchored in an earlier frame (a list the game
+                // keeps): back to the game's command(s), anchored again below.
+                // They're at entry + 6 commands (anchor_rect).
+                uint32_t entry = w1 + 6 * 8;
+                uint32_t words = ((uint32_t)MEM_W(0, (gpr)(int32_t)entry) >> 24) == 0xE4 ? 3 : 1;
+                for (uint32_t i = 0; i < words; i++) {
+                    set_command(rdram, addr + i * 8, (uint32_t)MEM_W(0, (gpr)(int32_t)(entry + i * 8)), (uint32_t)MEM_W(4, (gpr)(int32_t)(entry + i * 8)));
+                }
+                w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+                w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            }
             if ((w0 >> 24) == 0xDE && in_interp_area(w1)) {
                 // A matrix load tagged in an earlier frame (a list the game
                 // keeps): back to the game's command, tagged again below.
@@ -410,6 +583,9 @@ namespace {
             if (log_frame) {
                 log_command(depth, rdram, w0, w1);
             }
+            if (fill_run_count > 0 && (w0 >> 24) != G_FILLRECT && (w0 >> 24) != 0xE4 && !is_fill_run_state(w0 >> 24)) {
+                end_fill_run(rdram);
+            }
             switch (w0 >> 24) {
                 case 0xDE: { // G_DL
                     bool branch = ((w0 >> 16) & 0xFF) != 0; // no return
@@ -442,9 +618,20 @@ namespace {
                     break;
                 case 0xE4: // G_TEXRECT: two more words follow (RDPHALF_1, RDPHALF_2)
                     nudge_rect_start(rdram, addr);
+                    if (widen && in_hud) {
+                        add_hud_rect(addr, w0, w1, 3);
+                    }
                     addr += 16;
                     break;
+                case 0xF6: // G_FILLRECT
+                    if (widen && in_hud) {
+                        add_hud_rect(addr, w0, w1, 1);
+                    }
+                    break;
                 case 0xDA: // G_MTX
+                    if ((((w0 & 0xFF) ^ 1) & 4) != 0) { // projection
+                        in_hud = (w1 == hud_projection);
+                    }
                     if (interp_tags && (((w0 & 0xFF) ^ 1) & 4) == 0) { // modelview
                         tag_matrix(rdram, addr, w0, w1);
                     }
@@ -489,7 +676,12 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;
+    in_hud = false;
+    hud_bank = (hud_bank + 1) % hud_banks;
+    hud_entry = 0;
+    fill_run_count = 0;
     walk(rdram, dl, 0, widen, true);
+    end_fill_run(rdram);
     // Switching from Expand back to Original leaves the wide picture in the
     // strips outside the game's 4:3 inset, which the game never clears (black
     // from boot on the N64): the first frames after the switch clear the whole

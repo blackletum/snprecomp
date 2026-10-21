@@ -527,3 +527,35 @@ frame. `lib-patches/rt64/0016-shading-from-frame-matrix.patch` gives the RSP
 shader the frame's own (uninterpolated) matrices too, in a new buffer, and
 uses them for lighting and texgen: the shading follows the game's 30 fps
 frames while the geometry moves smoothly. Positions are unchanged.
+
+## Round 9: widescreen HUD; edges after switching back to Original
+
+### HUD anchoring
+
+As btgarecomp does it: in Expand, RT64 keeps 2D rectangles in the centred
+4:3 area unless the display list anchors them to a screen edge
+(`gEXSetRectAlign`). The HUD is drawn after the game loads its fixed 2D
+projection (`0x802C3AE0`); its top band (y < 40) has the score on the left,
+TIME in the middle, LIFE and its bar on the right. The walker
+(`src/game/display_list.cpp`) collects each run of rectangles drawn back to
+back (texture and fill rectangles with only state changes between them),
+splits it into elements (rectangles touching or overlapping, directly or
+through others: a string's glyphs, the life bar's frame and fill, the
+tutorial's box around it), and anchors an element that starts in the band by
+its centre: left of x 128 to the left edge, right of 192 to the right, both
+16 pixels further out (the original layout keeps a TV margin). Each anchored
+rectangle becomes a call to a short list that sets the alignment and a
+whole-window scissor, draws it, and restores both. Centred text (PRESS START
+BUTTON, TIME) and everything lower (crosshair lines, subtitles, tutorial
+panels) stay as they are.
+
+Some HUD rectangles are in a list the game keeps between frames, so the
+walker restores an earlier frame's redirect before anchoring again (the
+first version crashed RT64 when its entries overflowed and chained into
+stale ones).
+
+### Switching back to Original
+
+After Expand, the strips outside the game's 4:3 inset kept pieces of the
+wide picture (the game only clears the inset; on the N64 they're black from
+boot). The first six frames after switching back clear the whole screen.

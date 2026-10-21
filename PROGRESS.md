@@ -36,10 +36,10 @@ and leave the game's own behaviour, look and balance alone.
   options, saving.
 - Confirm the EEPROM size (4K assumed).
 - Rumble, controller defaults for the game's controls.
-- Widescreen: HUD anchoring, the crosshair's screen-to-world mapping,
+- Widescreen: the crosshair's screen-to-world mapping,
   the second-long zoom into the title (drawn by
   the CPU, stays 4:3). (Done: the picture widens, STATUS.md round 5; fades,
-  tints and the title screen, round 7; culling at the edges, round 8.)
+  tints and the title screen, round 7; culling at the edges, round 8; HUD anchoring, round 9.)
 - Higher framerates: the characters' jitter is fixed (round 8, confirmed);
   check the frame timing in busy scenes.
 - The in-game pause: a looping effect or engine sound keeps playing in stage 2.
