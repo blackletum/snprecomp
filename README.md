@@ -71,6 +71,8 @@ See [BUILDING.md](BUILDING.md).
 - [spimdisasm and rabbitizer](https://github.com/Decompollaborate) for finding
   function boundaries, and [n64sym](https://github.com/shygoo/n64sym) by shygoo
   for identifying the N64 SDK's functions
+- The app icon's 罪 is drawn with [Dela Gothic One](https://github.com/syakuzen/DelaGothic)
+  (SIL Open Font License 1.1)
 
 ## License
 
