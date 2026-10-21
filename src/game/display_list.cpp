@@ -133,24 +133,41 @@ namespace {
     // game's display list. Used in turn, like the quad copies.
     constexpr uint32_t prefix_area = 0x807F2000;
     constexpr uint32_t prefix_slots = 8;
-    constexpr uint32_t prefix_bytes = 8 * 8;
+    constexpr uint32_t prefix_commands = 16; // the branch to the game's list is the last
+    constexpr uint32_t prefix_bytes = prefix_commands * 8;
+
+    // The color images (screen-wide) a frame draws to, in order. In gameplay
+    // the first is an effect buffer and the picture shown is drawn after it
+    // into the frame's own framebuffer.
+    constexpr uint32_t max_cimgs = 4;
+    uint32_t cimgs[max_cimgs][2];
+    uint32_t cimg_count = 0;
+
     uint32_t prefix_slot = 0;
 
-    uint32_t clear_prefix(uint8_t* rdram, uint32_t dl) {
+    // all: clear every color image the frame draws to, not just the first.
+    uint32_t clear_prefix(uint8_t* rdram, uint32_t dl, bool all) {
         uint32_t prefix = prefix_area + prefix_slot * prefix_bytes;
         prefix_slot = (prefix_slot + 1) % prefix_slots;
-        const uint32_t commands[][2] = {
-            { 0xE3000A01, 0x00300000 }, // cycle type: fill
-            { first_cimg_w0, first_cimg_w1 },
-            { full_scissor_w0, full_scissor_w1 },
-            { 0xF7000000, 0x00010001 }, // fill color: black, as the game's own clears
-            { (G_FILLRECT << 24) | xy(319, 239), xy(0, 0) },
-            { 0xDE010000, dl }, // branch to the game's display list
-        };
-        uint32_t addr = prefix;
-        for (const auto& c : commands) {
-            set_command(rdram, addr, c[0], c[1]);
-            addr += 8;
+        uint32_t commands[prefix_commands][2];
+        uint32_t n = 0;
+        auto cmd = [&](uint32_t a, uint32_t b) { commands[n][0] = a; commands[n][1] = b; n++; };
+        cmd(0xE3000A01, 0x00300000); // cycle type: fill
+        cmd(0xF7000000, 0x00010001); // fill color: black, as the game's own clears
+        for (uint32_t i = 0; i < (all ? cimg_count : 1); i++) {
+            cmd(cimgs[i][0], cimgs[i][1]);
+            cmd(full_scissor_w0, full_scissor_w1);
+            cmd((G_FILLRECT << 24) | xy(319, 239), xy(0, 0));
+        }
+        if (all && cimg_count > 1) {
+            cmd(cimgs[0][0], cimgs[0][1]); // the game's list starts on the first
+        }
+        while (n < prefix_commands - 1) {
+            cmd(G_NOOP << 24, 0);
+        }
+        cmd(0xDE010000, dl); // branch to the game's display list
+        for (uint32_t i = 0; i < n; i++) {
+            set_command(rdram, prefix + i * 8, commands[i][0], commands[i][1]);
         }
         return prefix;
     }
@@ -639,6 +656,17 @@ namespace {
                         first_cimg_w0 = w0;
                         first_cimg_w1 = w1;
                     }
+                    if ((w0 & 0xFFF) + 1 == 320) {
+                        bool known = false;
+                        for (uint32_t i = 0; i < cimg_count; i++) {
+                            known = known || cimgs[i][1] == w1;
+                        }
+                        if (!known && cimg_count < max_cimgs) {
+                            cimgs[cimg_count][0] = w0;
+                            cimgs[cimg_count][1] = w1;
+                            cimg_count++;
+                        }
+                    }
                     break;
                 case 0xE4: // G_TEXRECT
                     if (!seen_draw) {
@@ -728,7 +756,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
 
     uint32_t dl = (uint32_t)MEM_W(0x30, task); // OSTask.data_ptr
     if (is_prefix(dl)) { // a task loaded again: the game's list is the branch target
-        dl = (uint32_t)MEM_W(5 * 8 + 4, (gpr)(int32_t)dl);
+        dl = (uint32_t)MEM_W((prefix_commands - 1) * 8 + 4, (gpr)(int32_t)dl);
         MEM_W(0x30, task) = (int32_t)dl;
     }
     bool widen = snp::get_widescreen_scale() > 1.0f;
@@ -746,6 +774,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
         s = 0;
     }
     first_cimg_w0 = 0;
+    cimg_count = 0;
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;
@@ -759,8 +788,9 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     number_tagged_instances(rdram);
     // Switching from Expand back to Original leaves the wide picture in the
     // strips outside the game's 4:3 inset, which the game never clears (black
-    // from boot on the N64): the first frames after the switch clear the whole
-    // screen first, enough for all three framebuffers.
+    // from boot on the N64): the first frames after the switch clear every
+    // color image they draw to first (in gameplay the first one is an effect
+    // buffer, not the picture), enough for all three framebuffers.
     static bool was_widened = false;
     static int clear_after_switch = 0;
     if (was_widened && !widen) {
@@ -772,7 +802,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
         clear_after_switch--;
     }
     if (((widen && starts_with_picture) || clear_all) && first_cimg_w0 != 0) {
-        MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl);
+        MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, clear_all);
     }
     if (log_frame) {
         fflush(stdout);
