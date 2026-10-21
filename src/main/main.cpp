@@ -75,6 +75,7 @@ void register_snp_overlays();
 namespace snp {
     void apply_theme(); // theme.cpp
     void register_launcher(); // launcher.cpp
+    void set_default_controls(); // input_defaults.cpp
 }
 
 static const std::string program_name = "Sin and Punishment Recompiled";
@@ -534,6 +535,7 @@ int main(int argc, char** argv) {
     }
 
     recompinput::players::set_single_player_mode(true);
+    snp::set_default_controls();
 
     // recompui::config::init_modal() (called from UIState::create_menus(),
     // itself called from inside RT64::Application::setup() on the gfx
