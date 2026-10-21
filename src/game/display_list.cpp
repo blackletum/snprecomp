@@ -212,18 +212,21 @@ namespace {
         return addr >= interp_area && addr < interp_area + interp_banks * interp_bank_bytes;
     }
 
-    // gEXMatrixGroupDecomposed parameters, as btgarecomp tags its models: tagged
-    // matrices always interpolate position, rotation, scale, skew, perspective
-    // and tiles (RT64's automatic setting drops position on a frame where the
-    // speed jumps, which itself looks like jitter); untagged ones keep RT64's
-    // automatic settings. Vertices and texture coordinates are skipped.
+    // gEXMatrixGroup parameters. Tagged (character) matrices always interpolate
+    // (RT64's automatic setting drops position on a frame where the speed jumps,
+    // which itself looks like jitter), and are blended entry by entry rather
+    // than decomposed: the game builds bone matrices as scale-then-rotate, so
+    // many are strongly skewed in the convention RT64 decomposes them in (axes
+    // up to cos 0.88 apart), and blending the rotation, scale and skew it got
+    // separately warped coats and limbs on in-between frames. Untagged ones keep
+    // RT64's automatic settings. Vertices and texture coordinates are skipped.
     uint32_t matrix_group_params(bool tagged) {
         constexpr uint32_t interpolate = 1, automatic = 2;
         const uint32_t motion = tagged ? interpolate : automatic;
         const uint32_t order = tagged ? 0u : 1u; // G_EX_ORDER_LINEAR, G_EX_ORDER_AUTO
         return (0u << 0) |   // no push
             (0u << 1) |      // modelview
-            (1u << 2) |      // decompose
+            ((tagged ? 0u : 1u) << 2) | // decompose (untagged only)
             (motion << 3) |  // position
             (motion << 5) |  // rotation
             (motion << 7) |  // scale
