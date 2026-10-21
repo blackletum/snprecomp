@@ -349,7 +349,7 @@ namespace {
     constexpr uint32_t hud_projection = 0x802C3AE0;
     constexpr uint32_t hud_area = 0x807A0000;
     constexpr uint32_t hud_banks = 4;
-    constexpr uint32_t hud_bank_bytes = 0x8000;
+    constexpr uint32_t hud_bank_bytes = 0x14000; // 640 entries; the banks end at 0x807F0000
     constexpr uint32_t hud_entry_max = 16; // commands; a texture rectangle needs 13
     constexpr uint32_t hud_entry_bytes = hud_entry_max * 8;
     constexpr uint32_t hud_entries = hud_bank_bytes / hud_entry_bytes;
@@ -444,18 +444,17 @@ namespace {
     // Each is anchored as a whole by its bounds, so nothing comes apart, and a
     // centred string stays centred. The crosshair's lines and the life bar
     // come back to back but don't touch.
-    constexpr uint32_t max_fill_run = 64;
+    // The life bar's moving highlight is drawn in 1-pixel columns: a run with
+    // it and the crosshair's lines is about 85 rectangles (with 64, the
+    // columns past the limit weren't anchored and parts of the bar showed at
+    // the 4:3 place). A run that still fills up is anchored in parts.
+    constexpr uint32_t max_fill_run = 256;
     struct HudRect {
         uint32_t addr, words, ulx, uly, lrx, lry;
     };
     HudRect fill_run[max_fill_run];
     uint32_t fill_run_count = 0;
 
-    void add_hud_rect(uint32_t addr, uint32_t w0, uint32_t w1, uint32_t words) {
-        if (fill_run_count < max_fill_run) {
-            fill_run[fill_run_count++] = { addr, words, (w1 >> 12) & 0xFFF, w1 & 0xFFF, (w0 >> 12) & 0xFFF, w0 & 0xFFF };
-        }
-    }
 
     void end_fill_run(uint8_t* rdram) {
         uint32_t n = fill_run_count;
@@ -499,6 +498,13 @@ namespace {
                 }
             }
         }
+    }
+
+    void add_hud_rect(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1, uint32_t words) {
+        if (fill_run_count >= max_fill_run) {
+            end_fill_run(rdram);
+        }
+        fill_run[fill_run_count++] = { addr, words, (w1 >> 12) & 0xFFF, w1 & 0xFFF, (w0 >> 12) & 0xFFF, w0 & 0xFFF };
     }
 
     // Commands that may come between an element's rectangles.
@@ -686,13 +692,13 @@ namespace {
                 case 0xE4: // G_TEXRECT: two more words follow (RDPHALF_1, RDPHALF_2)
                     nudge_rect_start(rdram, addr);
                     if (widen && in_hud) {
-                        add_hud_rect(addr, w0, w1, 3);
+                        add_hud_rect(rdram, addr, w0, w1, 3);
                     }
                     addr += 16;
                     break;
                 case 0xF6: // G_FILLRECT
                     if (widen && in_hud) {
-                        add_hud_rect(addr, w0, w1, 1);
+                        add_hud_rect(rdram, addr, w0, w1, 1);
                     }
                     break;
                 case 0xDA: // G_MTX
