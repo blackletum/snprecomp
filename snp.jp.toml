@@ -146,6 +146,14 @@ func = "func_80033AC4"
 before_vram = 0x80033AC4
 text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
+# Every matrix guMtxF2L builds that the hooks above didn't record (objects
+# that aren't skeletons: the city stage's cones) is an object of its own, of
+# the kind its caller ($ra) makes ($a0 the float matrix, $a1 the matrix).
+[[patches.hook]]
+func = "guMtxF2L"
+before_vram = 0x80048940
+text = "{ extern void snp_interp_object_matrix(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t); snp_interp_object_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r31, MEM_W(0x30, ctx->r4), MEM_W(0x34, ctx->r4), MEM_W(0x38, ctx->r4)); } // snp: interpolation"
+
 # --- Reticle reach in Expand -----------------------------------------------
 # func_800AB924 moves the reticle and keeps its offset from the screen centre
 # ($s2 + 0x28, in 320-wide screen units) within -144 .. 144: 16 short of the

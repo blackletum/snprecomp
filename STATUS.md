@@ -622,3 +622,15 @@ direction with its own projection, which Expand only shows more of). The
 crosshair's vertical line past the 4:3 picture is drawn beyond x 320 (cut by
 the game's scissor) or, on the left, at a negative x that wraps to near 1024:
 it's drawn with the whole window as scissor, a wrapped one moved back by 1024.
+
+### Identical objects flickering (the city stage's cones)
+
+The cones aren't skeletons, so they had no IDs and RT64 paired them by its
+guesses: on single in-between frames a cone vanished or showed 20-50 pixels
+off (paired with another cone). guMtxF2L now records every matrix the joint
+hooks didn't as an object of its own, of the kind its caller ($ra) makes,
+placed by its translation, and numbered with the instances (closest pairs
+first, per display list). Objects keep RT64's automatic component settings and
+decomposition; only their pairing is by ID (G_EX_ORDER_LINEAR). An object's ID
+is used only with its number (with SNP_INTERP_INSTANCES=0 they're automatic as
+before). Numbering costs about 0.1 ms a frame (stage 2, up to 121 instances).

@@ -23,15 +23,32 @@ namespace {
     uint32_t current_joint = 0;
     uint32_t generation = 0;
 
-    // A skeleton as drawn: what kind it is and where its first matrix puts it.
+    // A skeleton as drawn (or another object's matrix): what kind it is and
+    // where its first matrix puts it.
     struct Instance {
         uint32_t key = 0;
         float pos[3] = {};
         uint32_t number = 0;
+        uint32_t built = 0; // generation
     };
     std::unordered_map<uint32_t, Instance> instances; // serial -> instance
     uint32_t current_instance = 0;
     uint32_t current_kind = 0;
+    // Serials of other objects' matrices (snp_interp_object_matrix), apart
+    // from skeletons'.
+    constexpr uint32_t object_serials = 0x80000000;
+    uint32_t object_serial = 0;
+    // The matrix snp_interp_matrix just recorded (guMtxF2L builds it next).
+    uint32_t recorded_matrix = 0;
+
+    void set_pos(Instance& inst, uint32_t x, uint32_t y, uint32_t z) {
+        memcpy(&inst.pos[0], &x, 4);
+        memcpy(&inst.pos[1], &y, 4);
+        memcpy(&inst.pos[2], &z, 4);
+        for (float& f : inst.pos) {
+            if (!std::isfinite(f)) f = 0.0f;
+        }
+    }
 
     struct Entry {
         uint32_t id;
@@ -146,14 +163,32 @@ extern "C" void snp_interp_matrix(uint32_t mtx, uint32_t mesh, uint32_t x, uint3
     Instance& inst = instances[current_instance];
     if (inst.key == 0) {
         inst.key = current_kind != 0 ? current_kind : (key | 1);
-        memcpy(&inst.pos[0], &x, 4);
-        memcpy(&inst.pos[1], &y, 4);
-        memcpy(&inst.pos[2], &z, 4);
-        for (float& f : inst.pos) {
-            if (!std::isfinite(f)) f = 0.0f;
-        }
+        inst.built = generation;
+        set_pos(inst, x, y, z);
     }
     matrices[mtx & 0x1FFFFFFF] = { key, generation, current_instance };
+    recorded_matrix = mtx & 0x1FFFFFFF;
+}
+
+// guMtxF2L, as it builds any matrix: the matrix, its caller (where it was
+// called from: the kind of object) and the float matrix's translation. One
+// not recorded as a skeleton's above is an object of its own (the cones in the
+// city stage, all alike, were paired with one another by RT64's guesses and
+// flickered), numbered like skeletons with the others built at the same place.
+extern "C" void snp_interp_object_matrix(uint32_t mtx, uint32_t ra, uint32_t x, uint32_t y, uint32_t z) {
+    mtx &= 0x1FFFFFFF;
+    if (mtx == recorded_matrix) {
+        recorded_matrix = 0;
+        return;
+    }
+    uint32_t serial = object_serials | (++object_serial & 0x7FFFFFFF);
+    uint32_t kind = (uint32_t)((ra * 0x9E3779B97F4A7C15ull) >> 32) | 0x80000001u;
+    Instance& inst = instances[serial];
+    inst = Instance();
+    inst.key = kind;
+    inst.built = generation;
+    set_pos(inst, x, y, z);
+    matrices[mtx] = { kind >> 1, generation, serial };
 }
 
 namespace snp {
@@ -168,17 +203,19 @@ namespace snp {
                 it = (generation - it->second.generation > 3) ? matrices.erase(it) : std::next(it);
             }
         }
-        if (instances.size() > 1024) {
+        if (instances.size() > 4096) {
             for (auto it = instances.begin(); it != instances.end();) {
-                it = (current_instance - it->first > 512) ? instances.erase(it) : std::next(it);
+                it = (generation - it->second.built > 4) ? instances.erase(it) : std::next(it);
             }
         }
     }
 
-    // The ID recorded for the matrix at addr, or 0xFFFFFFFF (automatic), and
-    // its instance (0 if none).
-    uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance) {
+    // The ID recorded for the matrix at addr, or 0xFFFFFFFF (automatic), its
+    // instance (0 if none) and whether that's an object's rather than a
+    // skeleton's.
+    uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance, bool& object) {
         instance = 0;
+        object = false;
         auto it = matrices.find(addr & 0x1FFFFFFF);
         if (it == matrices.end() || generation - it->second.generation > 2) {
             return 0xFFFFFFFF;
@@ -186,8 +223,12 @@ namespace snp {
         // SNP_INTERP_INSTANCES=0 leaves instances out (for comparing).
         static const bool instances_off = [] { const char* v = std::getenv("SNP_INTERP_INSTANCES"); return v && v[0] == '0'; }();
         auto inst = instances.find(it->second.instance);
+        object = (it->second.instance & object_serials) != 0;
         if (!instances_off && inst != instances.end() && inst->second.key != 0) {
             instance = it->second.instance;
+        }
+        else if (object) {
+            return 0xFFFFFFFF; // an object's ID is only of use with its number
         }
         return it->second.id;
     }

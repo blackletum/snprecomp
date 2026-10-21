@@ -34,7 +34,7 @@
 
 namespace snp {
     void interp_new_frame(); // interpolation.cpp
-    uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance);
+    uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance, bool& object);
     void interp_number_instances(const std::vector<uint32_t>& drawn);
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
 }
@@ -240,8 +240,9 @@ namespace {
     // than decomposed: the game builds bone matrices as scale-then-rotate, so
     // many are strongly skewed in the convention RT64 decomposes them in (axes
     // up to cos 0.88 apart), and blending the rotation, scale and skew it got
-    // separately warped coats and limbs on in-between frames. Untagged ones keep
-    // RT64's automatic settings. Vertices and texture coordinates are skipped.
+    // separately warped coats and limbs on in-between frames. Untagged ones,
+    // and other objects with IDs, keep RT64's automatic settings. Vertices
+    // and texture coordinates are skipped.
     uint32_t matrix_group_params(bool tagged, bool numbered) {
         constexpr uint32_t interpolate = 1, automatic = 2;
         const uint32_t motion = tagged ? interpolate : automatic;
@@ -278,6 +279,7 @@ namespace {
         uint32_t entry;
         uint32_t id;
         uint32_t instance;
+        bool object;
     };
     std::vector<InstanceTag> instance_tags;
 
@@ -286,12 +288,13 @@ namespace {
             return;
         }
         uint32_t instance = 0;
-        uint32_t id = snp::interp_matrix_id(resolve(w1), instance);
+        bool object = false;
+        uint32_t id = snp::interp_matrix_id(resolve(w1), instance, object);
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
             { interp_entry == 0 ? 0xE0525464u : G_NOOP << 24, interp_entry == 0 ? 0x10000064u : 0u }, // gEXEnable, once a frame
             { 0x6400000C, id }, // gEXMatrixGroup
-            { matrix_group_params(id != G_EX_ID_AUTO, false), 0 },
+            { matrix_group_params(id != G_EX_ID_AUTO && !object, false), 0 },
             { w0, w1 }, // the game's matrix load
             { 0xDF000000, 0 },
         };
@@ -299,7 +302,7 @@ namespace {
             set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
         }
         if (instance != 0) {
-            instance_tags.push_back({ entry, id, instance });
+            instance_tags.push_back({ entry, id, instance, object });
         }
         interp_entry++;
         set_command(rdram, addr, 0xDE000000, entry);
@@ -321,7 +324,7 @@ namespace {
         snp::interp_number_instances(drawn);
         for (const InstanceTag& tag : instance_tags) {
             set_command(rdram, tag.entry + 8, 0x6400000C, snp::interp_numbered_id(tag.id, tag.instance));
-            set_command(rdram, tag.entry + 16, matrix_group_params(true, true), 0);
+            set_command(rdram, tag.entry + 16, matrix_group_params(!tag.object, true), 0);
         }
         instance_tags.clear();
     }
