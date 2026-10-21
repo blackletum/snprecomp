@@ -571,6 +571,19 @@ logging in that scene: paired matrices changing a lot between frames went
 from about 50 a frame (the worst entry change 1.18) to about 18 (0.72, the
 fast-flapping wings themselves); the soldier scene is unchanged.
 
+Closeness alone still let pieces fly off the small insects in a swarm (25 of
+one kind sharing a pose): an insect's body was sometimes paired with the one
+beside it, about 130 units away, and shot down on the in-between frames.
+Each skeleton drawn is now an instance (hooks where the walkers start:
+func_80033128, func_80033170, func_80033A40, func_80033AC4), placed by
+its first matrix's translation, and numbered by matching the frame's
+instances of a kind to last frame's, closest pairs first (within 256 units);
+the number goes into its IDs, so repeats no longer happen. Taking them one at
+a time in draw order wasn't enough: a newly spawned insect took the number of
+the one beside it. Logged in that scene: an instance's match is now its own
+last position (about 17 units a frame against 130+ to the next nearest),
+apart from insects flying in even lines, which all shift together.
+
 The crosshair's vertical line runs the full height, so it started in the
 HUD band and was pinned to an edge when the reticle was off centre; HUD
 elements must now also end above y 80.

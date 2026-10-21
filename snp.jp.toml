@@ -96,7 +96,7 @@ text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint(0); } // snp:
 [[patches.hook]]
 func = "func_80034054"
 before_vram = 0x80034154
-text = "{ extern void snp_interp_matrix(uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r16); } // snp: interpolation"
+text = "{ extern void snp_interp_matrix(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r16, MEM_W(0x30, ctx->r4), MEM_W(0x34, ctx->r4), MEM_W(0x38, ctx->r4)); } // snp: interpolation"
 
 # func_80033758 is the second skeleton walker (animated characters): $s1 the
 # joint's pose entry, $s0 its slot in the character's animation channels.
@@ -118,7 +118,32 @@ text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint(0); } // snp:
 [[patches.hook]]
 func = "func_80032AA0"
 before_vram = 0x80032C88
-text = "{ extern void snp_interp_matrix(uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r17); } // snp: interpolation"
+text = "{ extern void snp_interp_matrix(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r17, MEM_W(0x30, ctx->r4), MEM_W(0x34, ctx->r4), MEM_W(0x38, ctx->r4)); } // snp: interpolation"
+
+# Where a skeleton starts being drawn (func_80033128 and func_80033170 for
+# func_80032F2C, func_80033A40 and func_80033AC4 for func_80033758): enemies
+# of a kind in a group can share one pose, so each skeleton drawn is told
+# apart as an instance ($a0 at the matrix hooks above is the float matrix,
+# its translation where the instance is).
+[[patches.hook]]
+func = "func_80033128"
+before_vram = 0x80033128
+text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80033170"
+before_vram = 0x80033170
+text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80033A40"
+before_vram = 0x80033A40
+text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80033AC4"
+before_vram = 0x80033AC4
+text = "{ extern void snp_interp_instance(void); snp_interp_instance(); } // snp: interpolation"
 
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
