@@ -375,7 +375,23 @@ namespace {
         if (uly >= hud_band_bottom || lry >= hud_element_bottom) {
             return false;
         }
+        // Which side: by where it starts or ends when that's clear of the
+        // middle, otherwise by its centre. A health bar shrinks towards one
+        // end, so its centre moves: an enemy's bar on the right that started
+        // past the middle jumped back to its 4:3 place once its centre crossed
+        // over, and forth again as it refilled. The TIME counter in the middle
+        // stays put either way.
         uint32_t centre = (ulx + lrx) / 2;
+        if (ulx >= 176 * 4) {
+            origin = origin_right;
+            offset = right_origin_shift + hud_margin;
+            return true;
+        }
+        if (lrx <= 144 * 4) {
+            origin = origin_left;
+            offset = -hud_margin;
+            return true;
+        }
         if (centre < 128 * 4) {
             origin = origin_left;
             offset = -hud_margin;
