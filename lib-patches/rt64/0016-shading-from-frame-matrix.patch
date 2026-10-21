@@ -1,0 +1,113 @@
+diff --git a/src/hle/rt64_state.cpp b/src/hle/rt64_state.cpp
+index 2970e71..7cfd028 100644
+--- a/src/hle/rt64_state.cpp
++++ b/src/hle/rt64_state.cpp
+@@ -1132,6 +1132,7 @@ namespace RT64 {
+         ext.transformsUploader->submit(ext.framebufferGraphicsWorker, {
+             { workload.drawData.viewProjTransforms.data(), workload.drawRanges.viewProjTransforms, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &workload.drawBuffers.viewProjTransformsBuffer},
+             { workload.drawData.worldTransforms.data(), workload.drawRanges.worldTransforms, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &workload.drawBuffers.worldTransformsBuffer},
++            { workload.drawData.worldTransforms.data(), workload.drawRanges.worldTransforms, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &workload.drawBuffers.curWorldTransformsBuffer},
+         });
+ 
+         if (renderToRDRAM) {
+diff --git a/src/hle/rt64_workload.h b/src/hle/rt64_workload.h
+index 8ea27d5..1b353f8 100644
+--- a/src/hle/rt64_workload.h
++++ b/src/hle/rt64_workload.h
+@@ -158,6 +158,7 @@ namespace RT64 {
+         BufferPair rspLightsBuffer;
+         BufferPair rspLookAtBuffer;
+         BufferPair worldTransformsBuffer;
++        BufferPair curWorldTransformsBuffer; // the frame's own, never interpolated (lighting, texgen)
+         BufferPair viewProjTransformsBuffer;
+         BufferPair prevWorldTransformsBuffer;
+         BufferPair invTWorldTransformsBuffer;
+diff --git a/src/render/rt64_descriptor_sets.h b/src/render/rt64_descriptor_sets.h
+index 69a82ac..c40b7cc 100644
+--- a/src/render/rt64_descriptor_sets.h
++++ b/src/render/rt64_descriptor_sets.h
+@@ -527,6 +527,7 @@ namespace RT64 {
+         uint32_t dstPos;
+         uint32_t dstTc;
+         uint32_t dstCol;
++        uint32_t curWorldTransforms;
+ 
+         RSPProcessDescriptorSet(RenderDevice *device = nullptr) {
+             builder.begin();
+@@ -551,6 +552,7 @@ namespace RT64 {
+             dstPos = builder.addReadWriteStructuredBuffer(19);
+             dstTc = builder.addReadWriteStructuredBuffer(20);
+             dstCol = builder.addReadWriteStructuredBuffer(21);
++            curWorldTransforms = builder.addStructuredBuffer(22);
+             builder.end();
+ 
+             if (device != nullptr) {
+diff --git a/src/render/rt64_rsp_processor.cpp b/src/render/rt64_rsp_processor.cpp
+index 5687b81..c994c06 100644
+--- a/src/render/rt64_rsp_processor.cpp
++++ b/src/render/rt64_rsp_processor.cpp
+@@ -44,6 +44,7 @@ namespace RT64 {
+         processSet->setBuffer(processSet->rspLookAtVector, p.drawBuffers->rspLookAtBuffer.get(), RenderBufferStructuredView(sizeof(interop::RSPLookAt)));
+         processSet->setBuffer(processSet->viewProjTransforms, p.drawBuffers->viewProjTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
+         processSet->setBuffer(processSet->worldTransforms, p.drawBuffers->worldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
++        processSet->setBuffer(processSet->curWorldTransforms, p.drawBuffers->curWorldTransformsBuffer.get(), RenderBufferStructuredView(sizeof(interop::float4x4)));
+         processSet->setBuffer(processSet->dstPos, p.outputBuffers->screenPosBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
+         processSet->setBuffer(processSet->dstTc, p.outputBuffers->genTexCoordBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 2));
+         processSet->setBuffer(processSet->dstCol, p.outputBuffers->shadedColBuffer.buffer.get(), RenderBufferStructuredView(sizeof(float) * 4));
+diff --git a/src/render/rt64_transform_processor.cpp b/src/render/rt64_transform_processor.cpp
+index cd8004d..93f5f30 100644
+--- a/src/render/rt64_transform_processor.cpp
++++ b/src/render/rt64_transform_processor.cpp
+@@ -83,6 +83,7 @@ namespace RT64 {
+             const interop::float4x4 *invTWorldMatrices = drawData.invTWorldTransforms.data();
+             std::pair<size_t, size_t> uploadRange = { 0, drawData.worldTransforms.size() };
+             uploads.emplace_back(BufferUploader::Upload{ worldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.worldTransformsBuffer });
++            uploads.emplace_back(BufferUploader::Upload{ drawData.worldTransforms.data(), uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.curWorldTransformsBuffer });
+             uploads.emplace_back(BufferUploader::Upload{ prevWorldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.prevWorldTransformsBuffer });
+             uploads.emplace_back(BufferUploader::Upload{ invTWorldMatrices, uploadRange, sizeof(interop::float4x4), RenderBufferFlag::STORAGE, { }, &drawBuffers.invTWorldTransformsBuffer });
+         }
+diff --git a/src/shaders/RSPProcessCS.hlsl b/src/shaders/RSPProcessCS.hlsl
+index b02446e..6e52ca4 100644
+--- a/src/shaders/RSPProcessCS.hlsl
++++ b/src/shaders/RSPProcessCS.hlsl
+@@ -40,6 +40,7 @@ StructuredBuffer<float4x4> worldTransforms : register(t18);
+ RWStructuredBuffer<float4> dstPos : register(u19);
+ RWStructuredBuffer<float2> dstTc : register(u20);
+ RWStructuredBuffer<float4> dstCol : register(u21);
++StructuredBuffer<float4x4> curWorldTransforms : register(t22);
+ 
+ [numthreads(GROUP_SIZE, 1, 1)]
+ void CSMain(uint vertexIndex : SV_DispatchThreadID) {
+@@ -52,6 +53,10 @@ void CSMain(uint vertexIndex : SV_DispatchThreadID) {
+     const uint transformIndex = srcWorldIndices[vertexOffsetIndex];
+     const float4x4 viewProjMat = viewProjTransforms[viewProjIndex];
+     const float4x4 worldMat = worldTransforms[transformIndex];
++    // Lighting and texgen use the frame's own matrix, not the interpolated one: the
++    // game's lights and look-at belong to the frame, and pairing them with an
++    // in-between pose made the shading flicker on in-between frames.
++    const float4x4 shadeMat = curWorldTransforms[transformIndex];
+     const uint posIndex = vertexOffsetIndex * 3;
+     const uint normColIndex = vertexOffsetIndex * 4;
+     const float3 norm = float3(
+@@ -85,7 +90,7 @@ void CSMain(uint vertexIndex : SV_DispatchThreadID) {
+         const bool textureGenLinear = lookAtIndex & RSP_LOOKAT_INDEX_LINEAR;
+         const uint extractedIndex = (lookAtIndex >> RSP_LOOKAT_INDEX_SHIFT);
+         const RSPLookAt lookAt = rspLookAtVector[extractedIndex];
+-        tc = computeTextureGen(tc, norm, lookAt, textureGenLinear, worldMat);
++        tc = computeTextureGen(tc, norm, lookAt, textureGenLinear, shadeMat);
+     }
+     else {
+         float2 tcVel = float2(srcTcVel[tcIndex + 0], srcTcVel[tcIndex + 1]);
+@@ -101,10 +106,10 @@ void CSMain(uint vertexIndex : SV_DispatchThreadID) {
+         for (uint i = lightIndex; i < ambientIndex; i++) {
+             const RSPLight light = rspLightVector[i];
+             if (light.kc > 0) {
+-                resultColor += computePosLight(pos, norm, light, worldMat);
++                resultColor += computePosLight(pos, norm, light, shadeMat);
+             }
+             else {
+-                resultColor += computeDirLight(norm, light, worldMat);
++                resultColor += computeDirLight(norm, light, shadeMat);
+             }
+         }
+ 

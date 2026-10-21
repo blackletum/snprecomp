@@ -498,3 +498,17 @@ limits, each plus the object's radius. Found with a gdb read watchpoint on
 the camera's combined matrix (`0x80067CD0`), whose only reader is the
 `guMtxCatF` in this function. A hook scales the left/right limit by the
 widescreen scale. It's the only code reading those camera fields.
+
+### Shading flicker at high framerates (RT64 patch 0016)
+
+With the limbs paired right, the shading on the characters (the commander's
+coat most of all) still flickered at the display framerate, not at Original.
+The game gives every object its own set of lights each frame (`G_MOVEMEM` to
+the light slots, different directions per object). RT64 lights a vertex with
+the current frame's lights and the transform it's drawing with, which on an
+in-between frame is the interpolated one: the next frame's lights on a pose
+halfway there, so the light on a surface jumped back and forth every other
+frame. `lib-patches/rt64/0016-shading-from-frame-matrix.patch` gives the RSP
+shader the frame's own (uninterpolated) matrices too, in a new buffer, and
+uses them for lighting and texgen: the shading follows the game's 30 fps
+frames while the geometry moves smoothly. Positions are unchanged.
