@@ -480,6 +480,19 @@ the pools are reused, so a recorded matrix counts for two tasks. About a
 third to most of the loads in character scenes get an ID. `SNP_INTERP_TAGS=0`
 turns the tagging off for comparison.
 
+That still left the jitter (the owner: same with the IDs off). Logging RT64's
+matcher showed why: in the soldier scene only 11 of 67 transforms had an ID.
+The game has a second skeleton walker, `func_80033758`, for animated
+characters (it applies animation channels, `$s0`, on top of the pose entry,
+`$s1`), and it drew most of the soldiers; their limbs, all from one shared
+model, were still matched by RT64's guessing, with several pairs a frame
+jumping between pieces (rotation entries changing by 0.7 - 1.5 between the
+paired matrices). It's hooked the same way (key: both addresses), as is the
+matrix built by `func_80034054` (another mesh path) when it's part of a
+joint: now 56 of 67 have IDs. Character matrices are also blended entry by
+entry rather than decomposed: about half are strongly skewed in the
+convention RT64 decomposes them in.
+
 ### Default controller layout
 
 The owner's bindings made the default (`src/main/input_defaults.cpp`):

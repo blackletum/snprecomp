@@ -28,6 +28,12 @@ extern "C" void snp_interp_joint(uint32_t joint) {
     current_joint = joint;
 }
 
+// func_80033758 (the other skeleton walker), the same with its two per-joint
+// addresses folded into one key.
+extern "C" void snp_interp_joint2(uint32_t pose, uint32_t channels) {
+    current_joint = pose ^ (channels * 0x9E3779B1u) ^ 0x80000000u;
+}
+
 // func_80032AA0, as it builds a mesh's matrix: the matrix and the mesh.
 extern "C" void snp_interp_matrix(uint32_t mtx, uint32_t mesh) {
     if (current_joint == 0) {

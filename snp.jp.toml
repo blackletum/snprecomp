@@ -90,6 +90,31 @@ func = "func_80032F2C"
 before_vram = 0x8003306C
 text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint(0); } // snp: interpolation"
 
+# func_80034054 builds another kind of mesh's matrix (guMtxF2L at
+# 0x80034154: $a1 the new matrix, $s0 the mesh); recorded when it's part of a
+# joint.
+[[patches.hook]]
+func = "func_80034054"
+before_vram = 0x80034154
+text = "{ extern void snp_interp_matrix(uint32_t, uint32_t); snp_interp_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r16); } // snp: interpolation"
+
+# func_80033758 is the second skeleton walker (animated characters): $s1 the
+# joint's pose entry, $s0 its slot in the character's animation channels.
+[[patches.hook]]
+func = "func_80033758"
+before_vram = 0x80033944
+text = "{ extern void snp_interp_joint2(uint32_t, uint32_t); snp_interp_joint2((uint32_t)ctx->r17, (uint32_t)ctx->r16); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80033758"
+before_vram = 0x80033970
+text = "{ extern void snp_interp_joint2(uint32_t, uint32_t); snp_interp_joint2((uint32_t)ctx->r17, (uint32_t)ctx->r16); } // snp: interpolation"
+
+[[patches.hook]]
+func = "func_80033758"
+before_vram = 0x80033978
+text = "{ extern void snp_interp_joint(uint32_t); snp_interp_joint(0); } // snp: interpolation"
+
 [[patches.hook]]
 func = "func_80032AA0"
 before_vram = 0x80032C88
