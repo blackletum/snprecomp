@@ -308,6 +308,7 @@ namespace {
     constexpr uint32_t hud_entry_bytes = hud_entry_max * 8;
     constexpr uint32_t hud_entries = hud_bank_bytes / hud_entry_bytes;
     constexpr uint32_t hud_band_bottom = 40 * 4; // 10.2
+    constexpr uint32_t hud_element_bottom = 80 * 4;
     constexpr int32_t hud_margin = 16 * 4;
     constexpr int32_t right_origin_shift = -320 * 4; // RT64 adds the width to right-anchored coordinates
     constexpr uint32_t origin_left = 0x0, origin_right = 0x400, origin_none = 0x800;
@@ -321,8 +322,11 @@ namespace {
 
     // Which edge a rectangle (10.2 coordinates) in the top band is anchored
     // to: true and the origin/offset, or false to leave it centred.
-    bool hud_origin(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t& origin, int32_t& offset) {
-        if (uly >= hud_band_bottom) {
+    bool hud_origin(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t lry, uint32_t& origin, int32_t& offset) {
+        // It must start in the band and end near it: the tutorial's box around
+        // the life gauge ends at about y 50; the crosshair's vertical line runs
+        // the full height and follows the reticle, so it must never be anchored.
+        if (uly >= hud_band_bottom || lry >= hud_element_bottom) {
             return false;
         }
         uint32_t centre = (ulx + lrx) / 2;
@@ -413,17 +417,18 @@ namespace {
             if (find(i) != i) {
                 continue;
             }
-            uint32_t ulx = 0xFFF, uly = 0xFFF, lrx = 0;
+            uint32_t ulx = 0xFFF, uly = 0xFFF, lrx = 0, lry = 0;
             for (uint32_t j = 0; j < n; j++) {
                 if (find(j) == i) {
                     ulx = std::min(ulx, fill_run[j].ulx);
                     uly = std::min(uly, fill_run[j].uly);
                     lrx = std::max(lrx, fill_run[j].lrx);
+                    lry = std::max(lry, fill_run[j].lry);
                 }
             }
             uint32_t origin;
             int32_t offset;
-            if (!hud_origin(ulx, uly, lrx, origin, offset)) {
+            if (!hud_origin(ulx, uly, lrx, lry, origin, offset)) {
                 continue;
             }
             for (uint32_t j = 0; j < n; j++) {
