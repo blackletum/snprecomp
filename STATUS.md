@@ -493,6 +493,8 @@ joint: now 56 of 67 have IDs. Character matrices are also blended entry by
 entry rather than decomposed: about half are strongly skewed in the
 convention RT64 decomposes them in.
 
+Owner: fixed.
+
 ### Default controller layout
 
 The owner's bindings made the default (`src/main/input_defaults.cpp`):
