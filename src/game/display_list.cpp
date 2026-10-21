@@ -120,6 +120,7 @@ namespace {
         set_command(rdram, addr, w0, dst);
     }
 
+    // Also used after switching back to Original (snp_display_list_hook).
     // Frames that start with a full-screen picture (the title screen's backdrop,
     // drawn as tiles) don't clear the screen: on the N64 the picture covers it.
     // In Expand the picture stays 4:3 (stretching it would distort the art), so
@@ -489,7 +490,21 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     starts_with_picture = false;
     effect_area_scissor = false;
     walk(rdram, dl, 0, widen, true);
-    if (widen && starts_with_picture && first_cimg_w0 != 0) {
+    // Switching from Expand back to Original leaves the wide picture in the
+    // strips outside the game's 4:3 inset, which the game never clears (black
+    // from boot on the N64): the first frames after the switch clear the whole
+    // screen first, enough for all three framebuffers.
+    static bool was_widened = false;
+    static int clear_after_switch = 0;
+    if (was_widened && !widen) {
+        clear_after_switch = 6;
+    }
+    was_widened = widen;
+    bool clear_all = clear_after_switch > 0;
+    if (clear_all) {
+        clear_after_switch--;
+    }
+    if (((widen && starts_with_picture) || clear_all) && first_cimg_w0 != 0) {
         MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl);
     }
     if (log_frame) {
