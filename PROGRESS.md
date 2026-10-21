@@ -39,10 +39,11 @@ and leave the game's own behaviour, look and balance alone.
 - Higher framerates: check the game's frame timing (btgarecomp round 138's
   clock-rate issue) and RT64 interpolation matching.
 - Widescreen: HUD anchoring, the crosshair's screen-to-world mapping,
-  culling at the screen edges, the second-long zoom into the title (drawn by
+  the second-long zoom into the title (drawn by
   the CPU, stays 4:3). (Done: the picture widens, STATUS.md round 5; fades,
-  tints and the title screen, round 7.)
-- Interpolated framerates: models jitter in cutscenes.
+  tints and the title screen, round 7; culling at the edges, round 8.)
+- Interpolated framerates: confirm the limb jitter fix (round 8).
+- The in-game pause: a looping effect or engine sound keeps playing in stage 2.
 - For modders: texture packs from the mods folder, a texture dump switch,
   the list of text textures that differ between the ROMs, and the symbol
   file with names as functions are identified.

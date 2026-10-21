@@ -17,3 +17,8 @@ void snp::set_widescreen_scale(float scale) {
 float snp::get_widescreen_scale() {
     return widescreen_scale.load(std::memory_order_relaxed);
 }
+
+// func_80029070's left/right visibility limit (snp.jp.toml): wider in Expand.
+extern "C" float snp_cull_width_scale() {
+    return snp::get_widescreen_scale();
+}

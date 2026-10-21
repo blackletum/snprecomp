@@ -55,6 +55,18 @@ func = "func_80052064"
 before_vram = 0x800520DC
 text = "{ extern uint32_t snp_ai_length(void); ctx->r2 = (gpr)(int32_t)snp_ai_length(); } // snp: AI length"
 
+# --- Widescreen: culling at the screen edges ------------------------------
+# func_80029070 decides whether an object is in view: its position in camera
+# space against near/far, top/bottom and left/right limits from the camera
+# (the left/right one is camera+0x4B4 * depth + camera+0x4B8, plus the
+# object's radius). In Expand the picture is wider than the 4:3 view those
+# limits describe, so scenery at the sides wasn't drawn; the left/right limit
+# is scaled by the widescreen scale (src/game/widescreen.cpp).
+[[patches.hook]]
+func = "func_80029070"
+before_vram = 0x8002917C
+text = "{ extern float snp_cull_width_scale(void); ctx->f0.fl *= snp_cull_width_scale(); } // snp: widescreen culling"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass

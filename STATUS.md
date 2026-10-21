@@ -451,3 +451,41 @@ at it). The title now has black side bars that match the art.
 - The CPU writes a few dozen pixels into the feedback buffer's RAM in some
   scenes (it shares memory with something else); RT64 copies those in, at
   4:3 positions. Not visible in the scenes checked.
+
+## Round 8: interpolation IDs, default controls, culling at the screen edges
+
+### Limbs jumping at high framerates
+
+Characters are drawn limb by limb: a modelview matrix load, then the limb's
+display list with its vertex data in segment 5 (static model data, the same
+addresses every frame). The order of the limbs changes from frame to frame
+(two limbs swapped places between logged frames), and without IDs RT64 pairs
+matrices between frames by guessing, so a swap paired the wrong limbs and
+they jumped on the in-between frames (the owner's video). The display list
+walker (`src/game/display_list.cpp`) now puts a `gEXMatrixGroup` in front of
+every modelview load: an ID from the display list and segment 5 that follow
+it (plus a count for repeats within the frame), with position, rotation and
+scale always interpolated, or RT64's automatic matching when nothing follows
+to name it. The load becomes a call to a short list in unused RAM
+(`0x80700000`, four banks) holding the group and the original load.
+`SNP_INTERP_TAGS=0` turns it off for comparison. Not yet confirmed by the
+owner.
+
+### Default controller layout
+
+The owner's bindings made the default (`src/main/input_defaults.cpp`):
+twin-stick, the C buttons (moving) on the left stick, the stick (aiming) on
+the right stick, Z on the right trigger, R on the left. The keyboard keeps
+the frontend's defaults.
+
+### Culling at the screen edges
+
+In Expand, a piece of wall at the right edge was missing (the owner's video,
+stage 2). `func_80029070` is the game's visibility test: the object's
+position in camera space (the matrix stack top times the camera's view
+matrix, camera at `*0x80068180`) against near/far (`+0x4C0`, `+0x4C4`),
+top/bottom (`+0x4AC * z + 0x4B0`) and left/right (`+0x4B4 * z + 0x4B8`)
+limits, each plus the object's radius. Found with a gdb read watchpoint on
+the camera's combined matrix (`0x80067CD0`), whose only reader is the
+`guMtxCatF` in this function. A hook scales the left/right limit by the
+widescreen scale. It's the only code reading those camera fields.
