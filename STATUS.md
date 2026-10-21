@@ -397,3 +397,57 @@ closes the program as hung. A watchdog in `main.cpp` ends the process 3
 seconds after quitting starts (the runtime's `exited` flag) if it's still
 running. Saves are written as the game goes, so nothing needs the orderly
 shutdown.
+
+## Round 7: widescreen (Expand) part 2: fades, tints, the title
+
+In Expand, scene fades and tints (the red flash in the intro, the eyes
+shot's black, cross-fades) showed as a 4:3 box over a widescreen picture,
+and the title screen's sides kept old frames.
+
+### What it wasn't
+
+The game has a framebuffer feedback effect (motion trails): each frame,
+6-row strips of an off-screen buffer at `0x8011B760` are blended over the
+frame, then the frame is copied back into it. That looked like the cause,
+but RT64 handles it: its copies of that buffer are at the wide resolution,
+and the strips span the scissor, so RT64 stretches them; the trails
+already reach the screen edges. Nothing in the game's RAM rewrites that
+buffer either (checked with temporary RT64 logging).
+
+### Fades and tints: a full-screen quad in the 2D projection
+
+The tint is a 4-vertex quad, -160..160 by -120..120, drawn after the game
+loads its 2D projection (an orthographic 320x240). RT64 keeps 2D
+projections at 4:3 so the HUD isn't stretched, so the quad covered the
+middle 4:3 only; its color then went into the feedback buffer, which kept
+the box going for a while after.
+
+Fix (`widen_screen_quad`, `src/game/display_list.cpp`): in Expand, a
+4-vertex load whose corners are exactly at +-160, +-120 is pointed at a copy
+four times as wide, made every frame from the game's vertices (which carry
+that frame's fade color) and clipped to the screen by the scissor. The
+copies go in RAM the game doesn't use (from `0x807F0000`; the game lives in
+the first 4 MB, its last framebuffer ending at `0x80400000`, and nothing in
+it addresses higher), used in turn so a frame the renderer hasn't read yet
+keeps its copies. The command is in the frame's own display list, rebuilt
+every frame, so nothing needs restoring.
+
+### The title: a 4:3 picture with no clear
+
+The title screen is a 320x240 picture drawn as 64x32 tiles, and its
+frames don't clear the screen (the picture covers it on the N64). In Expand
+the tiles stay 4:3, which is right for the art, but the sides kept what the
+cutscene before had drawn there. Fix (`clear_prefix`): in Expand, a frame
+whose first drawing command is a texture rectangle at the top left corner
+gets a short display list in front of it that clears the whole screen to
+black, then branches to the game's list (the task's `data_ptr` is pointed
+at it). The title now has black side bars that match the art.
+
+### Left as is
+
+- The zoom into the title (about a second) is drawn from buffers the CPU
+  writes (`0x800E52B0`, `0x8011C470`), so RT64 can only show what the CPU
+  made, at 4:3: a 4:3 box for that second.
+- The CPU writes a few dozen pixels into the feedback buffer's RAM in some
+  scenes (it shares memory with something else); RT64 copies those in, at
+  4:3 positions. Not visible in the scenes checked.

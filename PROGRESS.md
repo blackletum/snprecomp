@@ -38,9 +38,10 @@ and leave the game's own behaviour, look and balance alone.
 - Rumble, controller defaults for the game's controls.
 - Higher framerates: check the game's frame timing (btgarecomp round 138's
   clock-rate issue) and RT64 interpolation matching.
-- Widescreen: HUD anchoring, the game's framebuffer effects (scene
-  cross-fades, the title backdrop), the crosshair's screen-to-world mapping,
-  culling at the screen edges. (Done: the picture widens, STATUS.md round 5.)
+- Widescreen: HUD anchoring, the crosshair's screen-to-world mapping,
+  culling at the screen edges, the second-long zoom into the title (drawn by
+  the CPU, stays 4:3). (Done: the picture widens, STATUS.md round 5; fades,
+  tints and the title screen, round 7.)
 - Interpolated framerates: models jitter in cutscenes.
 - For modders: texture packs from the mods folder, a texture dump switch,
   the list of text textures that differ between the ROMs, and the symbol
