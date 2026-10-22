@@ -1,8 +1,9 @@
 // The launcher menu. The frontend's default one only offers the first
 // registered game, and checks a loaded ROM against that game alone, so the
 // English translation's ROM was refused as "not the correct game". This one
-// takes either ROM through one Load ROM option and has a start option for
-// each ROM that's loaded (src/main/main.cpp's supported_games).
+// takes either kind of ROM, Japanese or translated, through one Load ROM option
+// and has a start option for each that's loaded (src/main/main.cpp's
+// supported_games).
 #include <string>
 #include <vector>
 
@@ -73,9 +74,9 @@ namespace {
             }
             if (right_game_wrong_version) {
                 recompui::message_box(
-                    "This ROM is Sin and Punishment, but not a supported version.\n"
-                    "Supported: the Japanese release (Tsumi to Batsu: Hoshi no Keishousha) or the fan English translation. "
-                    "See the README for their SHA-1 hashes.");
+                    "This ROM is Sin and Punishment, but its game code is different from the Japanese release's.\n"
+                    "Supported: the Japanese release (Tsumi to Batsu: Hoshi no Keishousha) and translation patches of it "
+                    "that only change text and graphics, such as the English translation.");
             }
             else {
                 recompui::message_box("This ROM is not Sin and Punishment.");

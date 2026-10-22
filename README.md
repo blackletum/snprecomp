@@ -24,18 +24,20 @@ included.** You need your own dump of the game to build or play this.
 
 ## Game Files
 
-Either of these ROMs works. Pick the one you want to play:
+You need the Japanese release, Tsumi to Batsu - Hoshi no Keishousha, or a
+translation patch of it. Any dump in any byte order (`.z64`, `.n64`, `.v64`)
+works, and so does a patched ROM as long as the patch only changes text and
+graphics, like the English translations. Tested:
 
 | ROM | SHA-1 |
 |---|---|
 | Tsumi to Batsu - Hoshi no Keishousha (Japan), original | `581297b9d5c3a4c33169ae0aae218c742cd9cbcf` |
-| Sin and Punishment - Successor of the Earth (U), English fan translation patched onto the Japanese ROM | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
+| Sin and Punishment - Successor of the Earth (U), English translation patched onto the Japanese ROM | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
+| Sin and Punishment - Successor of the Earth (English v1.0) [Zoinkity] | `e3906c919236dac6eba020b4b8c1df91fd725c5d` |
 
-The voices are the game's original English voice acting in both. The fan
-translation replaces the Japanese on-screen text and menus with English;
-apply its patch to the Japanese ROM yourself, as for an emulator. Hashes are
-of the big-endian `.z64`; `tools/normalize_rom.py` converts other dumps and
-says whether yours is one of these.
+The voices are the game's original English voice acting in all of them; the
+English translation replaces the Japanese on-screen text and menus. Apply its
+patch to the Japanese ROM yourself, as for an emulator.
 
 Add a blank portable.txt in the application's folder to make portable if you
 want to save settings locally.
@@ -81,6 +83,7 @@ See [BUILDING.md](BUILDING.md).
 - [RT64](https://github.com/rt64/rt64) by Dario and contributors, the renderer
 - [RecompFrontend](https://github.com/N64Recomp/RecompFrontend) by the N64Recomp
   contributors, the launcher and input layer
+- Zoinkity, for the English translation of the game's text
 - [spimdisasm and rabbitizer](https://github.com/Decompollaborate) for finding
   function boundaries, and [n64sym](https://github.com/shygoo/n64sym) by shygoo
   for identifying the N64 SDK's functions

@@ -11,9 +11,9 @@
 extern "C" {
 #endif
 
-// src/game/rom_version.cpp: nonzero when the fan-translated English ROM is
-// running.
-int snp_rom_is_english(void);
+// src/game/rom_version.cpp: the loaded ROM's constant where the Japanese
+// code built value.
+uint32_t snp_rom_value(uint8_t* rdram, uint32_t value, uint32_t lui_addr, uint32_t lui_jp, uint32_t lo_addr, uint32_t lo_jp);
 
 // src/game/overlay_loader.cpp: registers a code segment the game loaded.
 void snp_segment_loaded(uint8_t* rdram, int32_t args);

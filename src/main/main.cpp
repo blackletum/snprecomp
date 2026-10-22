@@ -65,6 +65,7 @@
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 
 void register_snp_overlays(); // register_overlays.cpp
+bool snp_rom_check(const recomp::GameEntry& game, const std::vector<uint8_t>& rom); // rom_version.cpp
 
 namespace snp {
     void apply_theme(); // theme.cpp
@@ -357,8 +358,9 @@ static std::string get_game_thread_name(const OSThread* t) {
 std::vector<recomp::GameEntry> supported_games = {
     // Both ROMs run the same recompiled code: their code segments are
     // identical (the fan translation only changes assets and a few
-    // constants, see src/game/rom_version.cpp). They're separate entries so
-    // either one is accepted, each with its own saves.
+    // constants). They're separate entries, each with its own saves. Other
+    // dumps and patches with the same code are accepted too
+    // (src/game/rom_version.cpp).
     //
     // rom_hash: XXH3_64 of the normalized big-endian .z64
     // (tools/normalize_rom.py), not the N64 header CRCs. syms/rom_info.md.
@@ -475,6 +477,7 @@ int main(int argc, char** argv) {
     for (const auto& game : supported_games) {
         recomp::register_game(game);
     }
+    recomp::set_rom_check(snp_rom_check);
 
     recompinput::players::set_single_player_mode(true);
     snp::set_default_controls();

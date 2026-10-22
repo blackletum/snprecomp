@@ -197,41 +197,40 @@ func = "func_8004D7B0"
 before_vram = 0x8004D7B0
 text = "snp_spin_yield(rdram); // snp: busy-wait yield"
 
-# --- The fan-translated English ROM ----------------------------------------
-# Its code is the same as the Japanese ROM's except for a few constants that
-# point at data the translation moved (STATUS.md round 1). Both ROMs run
-# this one recompiled build, so these hooks put the English ROM's value in
-# the register right after the original instruction pair built the Japanese
-# one. src/game/rom_version.cpp says which ROM is running.
+# --- Other ROMs: translations ------------------------------------------------
+# Translations change only a few constants that point at data they moved
+# (STATUS.md round 1). Every ROM runs this one recompiled build, so these hooks
+# replace the value the Japanese instructions built with what the loaded ROM's
+# own instructions there build (src/game/rom_version.cpp).
 
-# func_8002BCE0: a display list address, 0x802B5D20 -> 0x802B5D60.
+# func_8002BCE0: a display list address (0x802B5D20 in the Japanese release).
 [[patches.hook]]
 func = "func_8002BCE0"
 before_vram = 0x8002BD60
-text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+text = "ctx->r2 = (gpr)(int32_t)snp_rom_value(rdram, (uint32_t)ctx->r2, 0, 0, 0x8002BD5C, 0x24425D20); // snp: ROM constant"
 
 [[patches.hook]]
 func = "func_8002BCE0"
 before_vram = 0x8002BD90
-text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+text = "ctx->r2 = (gpr)(int32_t)snp_rom_value(rdram, (uint32_t)ctx->r2, 0, 0, 0x8002BD8C, 0x24425D20); // snp: ROM constant"
 
 [[patches.hook]]
 func = "func_8002BCE0"
 before_vram = 0x8002BD9C
-text = "if (snp_rom_is_english()) ctx->r2 = (gpr)(int32_t)0x802B5D60u; // snp: English ROM constant"
+text = "ctx->r2 = (gpr)(int32_t)snp_rom_value(rdram, (uint32_t)ctx->r2, 0, 0, 0x8002BD98, 0x24425D20); // snp: ROM constant"
 
-# func_8003C0D0: the ROM offset of the last asset file, 0x00A8CA40 -> 0x00A65CF0.
+# func_8003C0D0: the ROM offset of the last asset file (0x00A8CA40 in the Japanese release).
 [[patches.hook]]
 func = "func_8003C0D0"
 before_vram = 0x8003C160
-text = "if (snp_rom_is_english()) ctx->r3 = 0x00A65CF0; // snp: English ROM constant"
+text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003C158, 0x3C0200A9, 0x8003C15C, 0x2443CA40); // snp: ROM constant"
 
 [[patches.hook]]
 func = "func_8003C0D0"
 before_vram = 0x8003C1A0
-text = "if (snp_rom_is_english()) ctx->r2 = 0x00A65CF0; // snp: English ROM constant"
+text = "ctx->r2 = snp_rom_value(rdram, (uint32_t)ctx->r2, 0x8003C198, 0x3C0200A9, 0x8003C19C, 0x2442CA40); // snp: ROM constant"
 
 [[patches.hook]]
 func = "func_8003C0D0"
 before_vram = 0x8003C1F4
-text = "if (snp_rom_is_english()) ctx->r3 = 0x00A65CF0; // snp: English ROM constant"
+text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003C1EC, 0x3C0200A9, 0x8003C1F0, 0x2443CA40); // snp: ROM constant"

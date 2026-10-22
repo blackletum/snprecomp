@@ -1,0 +1,71 @@
+From: snprecomp
+Subject: Let a game accept ROMs whose hash differs, through its own check
+
+Other dumps and patches of a game (translations that only move data) run the
+same code; the game can register a check that accepts them.
+
+diff --git a/librecomp/include/librecomp/game.hpp b/librecomp/include/librecomp/game.hpp
+index a4cf7e8..03ac9da 100644
+--- a/librecomp/include/librecomp/game.hpp
++++ b/librecomp/include/librecomp/game.hpp
+@@ -88,6 +88,11 @@ namespace recomp {
+     bool register_game(const recomp::GameEntry& entry);
+     void check_all_stored_roms();
+     bool load_stored_rom(const std::u8string& game_id);
++    // A game's own check for ROMs whose hash doesn't match its entry (other dumps or
++    // patches of the same game): returns true to accept the ROM, already in big-endian
++    // byte order, for that entry.
++    using RomCheck = bool (*)(const GameEntry& game, const std::vector<uint8_t>& rom_data);
++    void set_rom_check(RomCheck check);
+     RomValidationError select_rom(const std::filesystem::path& rom_path, const std::u8string& game_id);
+     bool is_rom_valid(const std::u8string& game_id);
+     bool is_rom_loaded();
+diff --git a/librecomp/src/recomp.cpp b/librecomp/src/recomp.cpp
+index ca35802..e6dd22b 100644
+--- a/librecomp/src/recomp.cpp
++++ b/librecomp/src/recomp.cpp
+@@ -166,6 +166,17 @@ bool check_hash(const std::vector<uint8_t>& rom_data, uint64_t expected_hash) {
+     return calculated_hash == expected_hash;
+ }
+ 
++static recomp::RomCheck rom_check = nullptr;
++
++void recomp::set_rom_check(RomCheck check) {
++    rom_check = check;
++}
++
++// The entry's hash, or the game's own check.
++static bool rom_matches(const recomp::GameEntry& game_entry, const std::vector<uint8_t>& rom_data) {
++    return check_hash(rom_data, game_entry.rom_hash) || (rom_check != nullptr && rom_check(game_entry, rom_data));
++}
++
+ static std::vector<uint8_t> read_file(const std::filesystem::path& path) {
+     std::vector<uint8_t> ret;
+ 
+@@ -197,7 +208,7 @@ bool write_file(const std::filesystem::path& path, const std::vector<uint8_t>& d
+ bool check_stored_rom(const recomp::GameEntry& game_entry) {
+     std::vector stored_rom_data = read_file(config_path / game_entry.stored_filename());
+ 
+-    if (!check_hash(stored_rom_data, game_entry.rom_hash)) {
++    if (!rom_matches(game_entry, stored_rom_data)) {
+         // Incorrect hash, remove the stored ROM file if it exists.
+         std::filesystem::remove(config_path / game_entry.stored_filename());
+         return false;
+@@ -229,7 +240,7 @@ bool recomp::load_stored_rom(const std::u8string& game_id) {
+     
+     std::vector<uint8_t> stored_rom_data = read_file(config_path / find_it->second.stored_filename());
+ 
+-    if (!check_hash(stored_rom_data, find_it->second.rom_hash)) {
++    if (!rom_matches(find_it->second, stored_rom_data)) {
+         // The ROM no longer has the right hash, delete it.
+         std::filesystem::remove(config_path / find_it->second.stored_filename());
+         return false;
+@@ -390,7 +401,7 @@ recomp::RomValidationError recomp::select_rom(const std::filesystem::path& rom_p
+             break;
+     }
+ 
+-    if (!check_hash(rom_data, game_entry.rom_hash)) {
++    if (!rom_matches(game_entry, rom_data)) {
+         const std::string_view name{ reinterpret_cast<const char*>(rom_data.data()) + 0x20, game_entry.internal_name.size()};
+         if (name == game_entry.internal_name) {
+             return recomp::RomValidationError::IncorrectVersion;
