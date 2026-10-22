@@ -35,8 +35,9 @@ void snp::config::add_general_options(recomp::config::Config& general) {
     general.add_enum_option(
         mouse_aim_id,
         "Mouse Aim",
-        "How the mouse moves the reticle. Left click fires (Z), right click jumps (R), "
-        "middle click switches the aim mode (A)."
+        "How the mouse moves the reticle. The mouse buttons are bound below, on the "
+        "keyboard's bindings (left click fires, right click jumps, middle click switches "
+        "the aim mode by default)."
         "<br/><br/>"
         "<b>Absolute</b>: the reticle is where the mouse pointer is, like a light gun."
         "<br/>"
@@ -54,6 +55,10 @@ void snp::config::add_general_options(recomp::config::Config& general) {
         "At 50% it moves with the pointer.",
         50.0
     );
+
+    // Set once the mouse buttons were added to saved keyboard bindings
+    // (src/main/input_defaults.cpp).
+    general.add_bool_option("mouse_buttons_bound", "", "", false, true);
 
     // Shown on the Controls tab, above the mappings, instead
     // (lib-patches/RecompFrontend/0002).

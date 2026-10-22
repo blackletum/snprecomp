@@ -1,0 +1,108 @@
+diff --git a/recompinput/include/recompinput/input_state.h b/recompinput/include/recompinput/input_state.h
+index 1961e29..a41d834 100644
+--- a/recompinput/include/recompinput/input_state.h
++++ b/recompinput/include/recompinput/input_state.h
+@@ -48,5 +48,7 @@ namespace recompinput {
+     void remove_controller_state(SDL_JoystickID joystick_id);
+     void add_rotation_deltas(SDL_JoystickID joystick_id, float rot_x, float rot_y);
+     void add_mouse_deltas(float delta_x, float delta_y);
++    // A mouse button pressed (SDL_BUTTON_LEFT etc.), for the next poll.
++    void add_mouse_click(uint8_t button);
+     void add_mouse_wheel_delta(int32_t delta);
+ }
+diff --git a/recompinput/src/input_events.cpp b/recompinput/src/input_events.cpp
+index 92087e0..f89a0de 100644
+--- a/recompinput/src/input_events.cpp
++++ b/recompinput/src/input_events.cpp
+@@ -224,6 +224,17 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
+         }
+         queue_if_enabled(event);
+         break;
++    case SDL_EventType::SDL_MOUSEBUTTONDOWN:
++        // A mouse button can be bound like a key.
++        if (binding::is_binding() && binding::get_scanning_device() == InputDevice::Keyboard) {
++            binding::set_scanned_input({ InputType::Mouse, event->button.button });
++            break;
++        }
++        if (!recompinput::game_input_disabled()) {
++            recompinput::add_mouse_click(event->button.button);
++        }
++        queue_if_enabled(event);
++        break;
+     case SDL_EventType::SDL_DROPBEGIN:
+         DropState.files_dropped.clear();
+         break;
+diff --git a/recompinput/src/input_state.cpp b/recompinput/src/input_state.cpp
+index 03ed871..52072a0 100644
+--- a/recompinput/src/input_state.cpp
++++ b/recompinput/src/input_state.cpp
+@@ -24,6 +24,10 @@ static struct {
+     std::unordered_map<SDL_JoystickID, ControllerState> controller_states;
+ 
+     std::array<float, 2> mouse_delta{};
++    // Mouse buttons held at the last poll, and pressed since it (a click
++    // shorter than a frame still counts).
++    uint32_t mouse_buttons = 0;
++    std::atomic<uint32_t> mouse_clicks = 0;
+     std::mutex pending_input_mutex;
+     std::array<float, 2> pending_mouse_delta{};
+ 
+@@ -34,6 +38,7 @@ static struct {
+ void recompinput::poll_inputs() {
+     InputState.keys = SDL_GetKeyboardState(&InputState.numkeys);
+     InputState.keymod = SDL_GetModState();
++    InputState.mouse_buttons = SDL_GetMouseState(nullptr, nullptr) | InputState.mouse_clicks.exchange(0);
+     static bool first_poll = true;
+ 
+     {
+@@ -230,8 +235,7 @@ float recompinput::get_input_analog(int controller_num, const InputField& field)
+     case InputType::ControllerAnalog:
+         return controller_axis_state(controller_num, field.input_id, true);
+     case InputType::Mouse:
+-        // TODO mouse support
+-        return 0.0f;
++        return (InputState.mouse_buttons & SDL_BUTTON(field.input_id)) ? 1.0f : 0.0f;
+     case InputType::None:
+         return false;
+     }
+@@ -261,8 +265,7 @@ bool recompinput::get_input_digital(int controller_num, const InputField& field)
+         // TODO adjustable threshold
+         return controller_axis_state(controller_num, field.input_id, true) >= recompinput::axis_digital_threshold;
+     case InputType::Mouse:
+-        // TODO mouse support
+-        return false;
++        return (InputState.mouse_buttons & SDL_BUTTON(field.input_id)) != 0;
+     case InputType::None:
+         return false;
+     }
+@@ -406,6 +409,10 @@ void recompinput::add_rotation_deltas(SDL_JoystickID joystick_id, float rot_x, f
+     state.pending_rotation_delta[1] += rot_y;
+ }
+ 
++void recompinput::add_mouse_click(uint8_t button) {
++    InputState.mouse_clicks.fetch_or(SDL_BUTTON(button));
++}
++
+ void recompinput::add_mouse_deltas(float delta_x, float delta_y) {
+     std::lock_guard lock{ InputState.pending_input_mutex };
+     InputState.pending_mouse_delta[0] += delta_x;
+diff --git a/recompinput/src/input_types.cpp b/recompinput/src/input_types.cpp
+index c6786e6..9d3ca24 100644
+--- a/recompinput/src/input_types.cpp
++++ b/recompinput/src/input_types.cpp
+@@ -260,6 +260,15 @@ std::string recompinput::InputField::to_string() const {
+         return controller_axis_to_string(input_id);
+     case InputType::Keyboard:
+         return keyboard_input_to_string((SDL_Scancode)input_id);
++    case InputType::Mouse:
++        switch (input_id) {
++            case SDL_BUTTON_LEFT: return PF_MOUSE_LEFT;
++            case SDL_BUTTON_MIDDLE: return PF_MOUSE_MIDDLE;
++            case SDL_BUTTON_RIGHT: return PF_MOUSE_RIGHT;
++            case SDL_BUTTON_X1: return PF_MOUSE_4;
++            case SDL_BUTTON_X2: return PF_MOUSE_5;
++            default: return "Mouse " + std::to_string(input_id);
++        }
+     default:
+         return recompinput::unknown_device_input;
+     }

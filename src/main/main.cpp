@@ -72,6 +72,7 @@ namespace snp {
     void apply_theme(); // theme.cpp
     void register_launcher(); // launcher.cpp
     void set_default_controls(); // input_defaults.cpp
+    void add_mouse_button_bindings();
 }
 
 static const std::string program_name = "Sin and Punishment Recompiled";
@@ -501,6 +502,7 @@ int main(int argc, char** argv) {
     recompui::config::create_mods_tab();
     snp::config::add_extras_tabs();
     recompui::config::finalize();
+    snp::add_mouse_button_bindings();
 
     // Rice Video texture packs (an emulator's hires_texture folder) go in
     // texture_packs; RT64 packs are mods and take priority over them.
@@ -532,7 +534,7 @@ int main(int argc, char** argv) {
 
     ultramodern::input::callbacks_t input_callbacks{
         .poll_input = recompinput::poll_inputs,
-        .get_input = snp::mouse::get_input,
+        .get_input = recompinput::profiles::get_n64_input,
         .set_rumble = recompinput::set_rumble,
         .get_connected_device_info = get_connected_device_info,
     };

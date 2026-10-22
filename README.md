@@ -67,7 +67,8 @@ F1 or Esc opens the settings. Change the controls on the Controls tab.
 | Start | Enter | Start |
 
 Mouse Aim, Mouse Sensitivity, Joystick Deadzone and Analog Aim are at the top
-of the Controls tab.
+of the Controls tab. Mouse buttons, side buttons too, can be bound like keys
+on the keyboard side of the Controls tab.
 
 ## Texture Packs
 - **RT64 packs** (`.rtz`): install them from the Mods tab.

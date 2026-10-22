@@ -7,12 +7,11 @@
 // velocity is added, the mouse moves it (snp.jp.toml), only on frames the mouse
 // moved, so a controller aims as before in between.
 //
-// Mouse buttons can't be bound in RecompFrontend's controls menu, so they're
-// fixed: left click Z (fire), right click R (jump), middle click A (aim mode).
+// Mouse buttons are bound like keys on the Controls tab
+// (lib-patches/RecompFrontend/0008, defaults in src/main/input_defaults.cpp).
 #include "snp_mouse.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -25,16 +24,11 @@
 
 #include "recompinput/input_events.h"
 #include "recompinput/input_state.h"
-#include "recompinput/profiles.h"
 #include "snp_config.h"
 
 extern SDL_Window* window;
 
 namespace {
-    constexpr uint16_t BTN_A = 0x8000;
-    constexpr uint16_t BTN_Z = 0x2000;
-    constexpr uint16_t BTN_R = 0x0010;
-
     std::mutex motion_mutex;
     float relative_x = 0.0f; // pixels moved since the game last took them
     float relative_y = 0.0f;
@@ -43,11 +37,6 @@ namespace {
     bool pointer_moved = false;
     int window_w = 1280;
     int window_h = 720;
-
-    std::atomic<uint32_t> mouse_buttons = 0;
-    // Pressed since the game last read the controller, so a click shorter
-    // than a frame still counts.
-    std::atomic<uint32_t> mouse_clicked = 0;
 
     int SDLCALL watch_events(void*, SDL_Event* event) {
         switch (event->type) {
@@ -71,13 +60,6 @@ namespace {
                 }
                 break;
             }
-            case SDL_MOUSEBUTTONDOWN:
-                mouse_buttons.fetch_or(SDL_BUTTON(event->button.button));
-                mouse_clicked.fetch_or(SDL_BUTTON(event->button.button));
-                break;
-            case SDL_MOUSEBUTTONUP:
-                mouse_buttons.fetch_and(~SDL_BUTTON(event->button.button));
-                break;
             default:
                 break;
         }
@@ -106,17 +88,6 @@ namespace {
 void snp::mouse::init() {
     SDL_AddEventWatch(watch_events, nullptr);
     recompinput::set_game_mouse_callback(game_mouse);
-}
-
-bool snp::mouse::get_input(int player, uint16_t* buttons, float* x, float* y) {
-    bool connected = recompinput::profiles::get_n64_input(player, buttons, x, y);
-    if (player == 0 && snp::config::get_mouse_aim() != snp::config::MouseAim::Off && !recompinput::game_input_disabled()) {
-        uint32_t held = mouse_buttons.load() | mouse_clicked.exchange(0);
-        if (held & SDL_BUTTON_LMASK) *buttons |= BTN_Z;
-        if (held & SDL_BUTTON_RMASK) *buttons |= BTN_R;
-        if (held & SDL_BUTTON_MMASK) *buttons |= BTN_A;
-    }
-    return connected;
 }
 
 // func_800AB924, before the reticle's velocity is added: the reticle struct.

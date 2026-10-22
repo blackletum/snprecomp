@@ -6,6 +6,7 @@
 - Mouse aim: Absolute (the reticle follows the pointer) or Relative, with
   sensitivity. Left click fires, right click jumps, middle click switches the
   aim mode.
+- Mouse buttons can be rebound, side buttons too.
 - Analog Aim option, the stick moves the reticle as far as it's pushed.
 - Rice texture packs from the texture_packs folder, with an Open Folder
   button and an on / off option on the Graphics tab.
