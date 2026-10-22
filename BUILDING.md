@@ -87,8 +87,8 @@ cmake --build build --target SnPRecompiled
 .\build\SnPRecompiled.exe
 ```
 
-Run it from the repo root: the game loads `assets/` relative to the working
-directory. `--game snp` skips the launcher (`--game snp.n64.jp.1.0` or
+The game finds `assets/` in the working folder, next to the exe, or one folder
+up (so `build/SnPRecompiled` also starts on its own, e.g. by double-clicking). `--game snp` skips the launcher (`--game snp.n64.jp.1.0` or
 `--game snp.n64.en.fan` to pick the ROM when both are set up).
 
 ## Package a release

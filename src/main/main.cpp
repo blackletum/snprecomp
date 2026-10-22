@@ -474,6 +474,13 @@ int main(int argc, char** argv) {
     // inside the font file: recompui's generated base stylesheet sets
     // `font-family` to it, and RmlUi draws no text for a family it never
     // loaded.
+    std::error_code assets_ec;
+    if (!std::filesystem::is_directory(recompui::file::get_asset_path(""), assets_ec)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Sin and Punishment Recompiled",
+            "The assets folder wasn't found. Keep it next to SnPRecompiled.exe.", nullptr);
+        return EXIT_FAILURE;
+    }
+
     recompui::register_primary_font("Exo2.ttf", "Exo 2");
 
     recomp::register_config_path(recompui::file::get_app_folder_path());
