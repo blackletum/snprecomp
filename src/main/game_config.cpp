@@ -54,6 +54,11 @@ void snp::config::add_general_options(recomp::config::Config& general) {
         "At 50% it moves with the pointer.",
         50.0
     );
+
+    // Shown on the Controls tab, above the mappings, instead
+    // (lib-patches/RecompFrontend/0002).
+    recompui::config::show_option_on_controls_tab(recompui::config::general::id, mouse_aim_id);
+    recompui::config::show_option_on_controls_tab(recompui::config::general::id, mouse_sensitivity_id);
 }
 
 snp::config::MouseAim snp::config::get_mouse_aim() {

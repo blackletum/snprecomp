@@ -23,10 +23,10 @@ included.** You need your own dump of the game to build or play this.
 - Texture packs: RT64 packs (`.rtz`) and Rice Video hi-res packs made for
   emulators
 - Twin-stick controller layout by default, fully remappable, and keyboard
-- Mouse aiming (General tab): Absolute, the reticle where the pointer is, or
+- Mouse aiming (Controls tab): Absolute, the reticle where the pointer is, or
   Relative, with a sensitivity; left click fires, right click jumps, middle
   click switches the aim mode
-- Analog Aim (Enhancements): the stick moves the reticle as far as it's
+- Analog Aim (Controls tab): the stick moves the reticle as far as it's
   pushed, instead of the game's five speeds each way
 - Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
   Scene Select, infinite health, time and continues

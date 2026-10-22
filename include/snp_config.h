@@ -11,7 +11,7 @@ namespace snp::config {
 
     bool get_rumble_pak();
 
-    // Mouse aiming (General tab; src/main/mouse.cpp).
+    // Mouse aiming (on the Controls tab; src/main/mouse.cpp).
     enum class MouseAim : uint32_t {
         Off = 0,
         Relative = 1, // the mouse moves the reticle, the cursor held in the window

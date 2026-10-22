@@ -77,6 +77,8 @@ void snp::config::add_extras_tabs() {
         "for finer aiming.",
         false
     );
+    // On the Controls tab instead (lib-patches/RecompFrontend/0002).
+    recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
 
     recomp::config::Config& cheats = recompui::config::create_config_tab("Cheats", cheats_id, false);
     cheats.add_bool_option("infinite_health", "Infinite Health", "", false);
