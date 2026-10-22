@@ -540,3 +540,17 @@ endif()
 target_sources(SnPRecompiled PRIVATE ${SOURCES})
 
 set_property(TARGET SnPRecompiled PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+# Windows crash logs name the host functions on the faulting thread's stack
+# (src/main/crash_handler.cpp), from a PDB next to the exe. The recompiled game
+# code has no debug info (it would be huge); the crash log names it by N64
+# address instead.
+if (MSVC)
+    foreach(target SnPRecompiled rt64 recompui recompinput librecomp ultramodern)
+        if (TARGET ${target})
+            target_compile_options(${target} PRIVATE /Z7)
+        endif()
+    endforeach()
+    target_link_options(SnPRecompiled PRIVATE /DEBUG /OPT:REF /OPT:ICF)
+    target_link_libraries(SnPRecompiled PRIVATE Dbghelp.lib)
+endif()

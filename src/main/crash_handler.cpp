@@ -15,6 +15,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <dbghelp.h>
 #elif defined(__linux__)
 #include <csignal>
 #include <dlfcn.h>
@@ -34,6 +35,8 @@ namespace {
     };
     std::vector<GameFunc> game_funcs;
     uint8_t* rdram_base = nullptr;
+    // The faulting thread's host call stack, named from the PDB (Windows).
+    char host_frames[4096] = "";
 
     // Debug builds link incrementally: function pointers point at `jmp rel32`
     // thunks rather than the bodies. Follow one if present.
@@ -124,6 +127,9 @@ namespace {
                 last = f->vram;
                 listed++;
             }
+        }
+        if (host_frames[0] != '\0') {
+            fprintf(out, "Host call stack:\n%s", host_frames);
         }
         fflush(out);
     }
@@ -272,6 +278,66 @@ namespace {
         }
     }
 
+    // Walks the stack from the fault's context, naming each frame by module,
+    // function and line where the PDB has them.
+    void host_backtrace(const CONTEXT* fault_context) {
+        HANDLE process = GetCurrentProcess();
+        SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+        if (!SymInitialize(process, nullptr, TRUE)) {
+            return;
+        }
+        CONTEXT context = *fault_context;
+        STACKFRAME64 frame{};
+        frame.AddrPC.Offset = context.Rip;
+        frame.AddrPC.Mode = AddrModeFlat;
+        frame.AddrFrame.Offset = context.Rbp;
+        frame.AddrFrame.Mode = AddrModeFlat;
+        frame.AddrStack.Offset = context.Rsp;
+        frame.AddrStack.Mode = AddrModeFlat;
+        size_t used = 0;
+        for (int i = 0; i < 40 && used + 256 < sizeof(host_frames); i++) {
+            if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, GetCurrentThread(), &frame, &context,
+                    nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || frame.AddrPC.Offset == 0) {
+                break;
+            }
+            DWORD64 addr = frame.AddrPC.Offset;
+            HMODULE module = nullptr;
+            GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)addr, &module);
+            char module_path[MAX_PATH] = "?";
+            if (module != nullptr) {
+                GetModuleFileNameA(module, module_path, sizeof(module_path));
+            }
+            alignas(SYMBOL_INFO) char symbol_buffer[sizeof(SYMBOL_INFO) + 256];
+            SYMBOL_INFO* symbol = (SYMBOL_INFO*)symbol_buffer;
+            symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+            symbol->MaxNameLen = 255;
+            DWORD64 displacement = 0;
+            int n;
+            if (SymFromAddr(process, addr, &displacement, symbol)) {
+                IMAGEHLP_LINE64 line{};
+                line.SizeOfStruct = sizeof(line);
+                DWORD line_displacement = 0;
+                if (SymGetLineFromAddr64(process, addr, &line_displacement, &line)) {
+                    n = snprintf(host_frames + used, sizeof(host_frames) - used, "  %s!%s (%s:%lu)\n",
+                        file_name(module_path), symbol->Name, file_name(line.FileName), line.LineNumber);
+                }
+                else {
+                    n = snprintf(host_frames + used, sizeof(host_frames) - used, "  %s!%s+0x%llx\n",
+                        file_name(module_path), symbol->Name, (unsigned long long)displacement);
+                }
+            }
+            else {
+                n = snprintf(host_frames + used, sizeof(host_frames) - used, "  %s+0x%llx\n",
+                    file_name(module_path), (unsigned long long)(addr - (DWORD64)module));
+            }
+            if (n < 0) {
+                break;
+            }
+            used += (size_t)n;
+        }
+        SymCleanup(process);
+    }
+
     LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info) {
         static volatile LONG entered = 0;
         if (InterlockedExchange(&entered, 1) != 0) {
@@ -302,6 +368,7 @@ namespace {
             .access = has_access ? (uintptr_t)rec->ExceptionInformation[1] : 0,
             .write = has_access && rec->ExceptionInformation[0] == 1,
         };
+        host_backtrace(info->ContextRecord);
         write_reports(fault, (uintptr_t)info->ContextRecord->Rsp);
         show_crash_message();
         return EXCEPTION_CONTINUE_SEARCH;
