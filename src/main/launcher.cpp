@@ -119,19 +119,18 @@ namespace {
         }
     }
 
-    // The frontend's title, higher (at 14% rather than 25% of the height), so
-    // the options fit under it.
+    // The frontend's title, placed by build_menu with the options under it.
+    recompui::Element* title_wrapper = nullptr;
+
     void place_title(recompui::LauncherMenu* menu) {
-        static bool placed = false;
-        if (placed) {
+        if (title_wrapper != nullptr) {
             return;
         }
-        placed = true;
         menu->remove_default_title();
         recompui::ContextId context = recompui::get_current_context();
         recompui::Element* wrapper = context.create_element<recompui::Element>(menu, 0, "div", false);
+        title_wrapper = wrapper;
         wrapper->set_position(recompui::Position::Absolute);
-        wrapper->set_top(14.0f, recompui::Unit::Percent);
         wrapper->set_left(50.0f, recompui::Unit::Percent);
         wrapper->set_translate_2D(-50.0f, -50.0f, recompui::Unit::Percent);
         wrapper->set_width_auto();
@@ -228,15 +227,21 @@ namespace {
             options->add_option("Change ROM", load_rom);
         }
 
-        options->add_setup_controls_option();
+        // Controls and Mods are tabs of Settings.
         options->add_settings_option();
-        options->add_mods_option();
         options->add_option("Add to Steam", on_add_to_steam);
         options->add_exit_option();
 
-        // Lower than the frontend's 25% from the bottom, clear of the title
-        // with a start option for each ROM.
-        options->set_bottom(8.0f, recompui::Unit::Percent);
+        // The title and the options under it, centred together in the window
+        // (in percent of its height: an option row is about 7%), the options
+        // no wider than their longest name.
+        constexpr float title_height = 7.5f, gap = 6.0f, row_height = 7.05f;
+        size_t rows = loaded.size() + 4; // starts, Load/Change ROM, Settings, Add to Steam, Exit
+        float block = title_height + gap + row_height * rows;
+        float top = 50.0f - block / 2.0f;
+        title_wrapper->set_top(top + title_height / 2.0f, recompui::Unit::Percent);
+        options->set_bottom(100.0f - (top + block), recompui::Unit::Percent);
+        options->set_width(520.0f, recompui::Unit::Dp);
     }
 }
 
