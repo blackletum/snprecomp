@@ -59,6 +59,7 @@ void snp::config::add_general_options(recomp::config::Config& general) {
     // (lib-patches/RecompFrontend/0002).
     recompui::config::show_option_on_controls_tab(recompui::config::general::id, mouse_aim_id);
     recompui::config::show_option_on_controls_tab(recompui::config::general::id, mouse_sensitivity_id);
+    recompui::config::show_option_on_controls_tab(recompui::config::general::id, recompui::config::general::options::joystick_deadzone);
 }
 
 snp::config::MouseAim snp::config::get_mouse_aim() {
