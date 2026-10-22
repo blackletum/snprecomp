@@ -51,8 +51,6 @@
 #include "recompinput/profiles.h"
 #include "recompinput/players.h"
 
-#include "rt64_rice_packs.h"
-
 #include "librecomp/game.hpp"
 #include "librecomp/helpers.hpp"
 
@@ -506,11 +504,8 @@ int main(int argc, char** argv) {
 
     // Rice Video texture packs (an emulator's hires_texture folder) go in
     // texture_packs; RT64 packs are mods and take priority over them.
-    std::filesystem::path rice_packs_path = recompui::file::get_app_folder_path() / "texture_packs";
-    std::error_code ec;
-    std::filesystem::create_directories(rice_packs_path, ec);
-    RT64::setRiceTextureDirectories({ rice_packs_path });
-    recompui::renderer::trigger_texture_pack_update();
+    snp::config::apply_texture_packs();
+    recompui::set_game_started_callback(snp::config::lock_game_start_options);
 
     recomp::rsp::callbacks_t rsp_callbacks{
         .get_rsp_microcode = get_rsp_microcode,

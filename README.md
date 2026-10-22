@@ -63,7 +63,8 @@ want to save settings locally.
   `TSUMI TO BATSU#1A2B3C4D#2#1#5E6F7A8B_ciByRGBA.png`): put the pack's folder
   in the `texture_packs` folder (`%LOCALAPPDATA%\snprecomp\texture_packs` on
   Windows, `~/.config/snprecomp/texture_packs` on Linux, or next to the game
-  with `portable.txt`), then start the game. Tested with Vanit's English
+  with `portable.txt`; Graphics > Texture Packs > Open Folder opens it), then
+  start the game. Texture Packs on the Graphics tab turns them off. Tested with Vanit's English
   translation pack on the Japanese ROM.
 
 If an RT64 pack and a Rice pack both replace a texture, the RT64 pack's is

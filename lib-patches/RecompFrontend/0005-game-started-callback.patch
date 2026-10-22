@@ -1,0 +1,34 @@
+diff --git a/recompui/include/recompui/recompui.h b/recompui/include/recompui/recompui.h
+index 30c463b..5b22e15 100644
+--- a/recompui/include/recompui/recompui.h
++++ b/recompui/include/recompui/recompui.h
+@@ -91,6 +91,8 @@ namespace recompui {
+     bool is_prompt_open();
+     void update_mod_list(bool scan_mods = true);
+     void process_game_started();
++    // Called on the UI thread once the game has started (after the above).
++    void set_game_started_callback(void (*callback)());
+ 
+     void apply_color_hack();
+     void get_window_size(int& width, int& height);
+diff --git a/recompui/src/composites/ui_mod_menu.cpp b/recompui/src/composites/ui_mod_menu.cpp
+index 02455fd..1e57fcb 100644
+--- a/recompui/src/composites/ui_mod_menu.cpp
++++ b/recompui/src/composites/ui_mod_menu.cpp
+@@ -773,7 +773,16 @@ const std::string &get_game_mod_id() {
+     return current_game_mod_id;
+ }
+ 
++static void (*game_started_callback)() = nullptr;
++
++void set_game_started_callback(void (*callback)()) {
++    game_started_callback = callback;
++}
++
+ void process_game_started() {
++    if (game_started_callback != nullptr) {
++        game_started_callback();
++    }
+     if (mod_menu) {
+         recompui::ContextId ui_context = recompui::config::get_config_context_id();
+         bool opened = ui_context.open_if_not_already();

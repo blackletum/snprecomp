@@ -2,7 +2,18 @@
 // bloom on the Graphics tab. The game reads them through src/game/extras.cpp.
 #include "snp_config.h"
 
+#include <filesystem>
+
+#ifdef _WIN32
+#include "SDL.h"
+#else
+#include "SDL2/SDL.h"
+#endif
+
 #include "recompui/config.h"
+#include "recompui/renderer.h"
+#include "rt64_rice_packs.h"
+#include "util/file.h"
 
 namespace {
     const std::string enhancements_id = "enhancements";
@@ -26,6 +37,26 @@ namespace {
         {2, "High", "High"},
     };
 
+    const std::string texture_packs_id = "texture_packs";
+
+    std::filesystem::path texture_packs_path() {
+        return recompui::file::get_app_folder_path() / "texture_packs";
+    }
+
+    // Opens a folder in the system's file manager.
+    void open_folder(const std::filesystem::path& path) {
+        std::string url = "file:///";
+        for (char c : path.generic_u8string()) {
+            if (c == ' ') {
+                url += "%20";
+            }
+            else if (!(url.size() == 8 && c == '/')) { // no fourth slash before a Linux path
+                url += c;
+            }
+        }
+        SDL_OpenURL(url.c_str());
+    }
+
     bool get_bool(const std::string& tab, const char* id) {
         if (!tabs_added) {
             return false;
@@ -39,6 +70,39 @@ void snp::config::add_graphics_options(recomp::config::Config& graphics) {
     graphics_options_added = true;
     graphics.add_enum_option(screen_filter_id, "Screen Filter", "", screen_filter_options, 0);
     graphics.add_enum_option(bloom_id, "Bloom", "", bloom_options, 0);
+    graphics.add_bool_option(
+        texture_packs_id,
+        "Texture Packs",
+        "Loads the Rice Video texture packs (an emulator's hires_texture packs) in the texture_packs "
+        "folder. RT64 packs (.rtz) are turned on and off in the Mods menu instead."
+        "<br/><br/>"
+        "Can only be changed before the game starts.",
+        true
+    );
+    graphics.add_option_change_callback(texture_packs_id,
+        [](recomp::config::ConfigValueVariant, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+            snp::config::apply_texture_packs();
+        });
+    recompui::config::add_option_button(texture_packs_id, "Open Folder", []() {
+        std::error_code dir_ec;
+        std::filesystem::create_directories(texture_packs_path(), dir_ec);
+        open_folder(texture_packs_path());
+    });
+}
+
+void snp::config::apply_texture_packs() {
+    std::error_code ec;
+    std::filesystem::create_directories(texture_packs_path(), ec);
+    bool enabled = !graphics_options_added
+        || std::get<bool>(recompui::config::get_graphics_config().get_option_value(texture_packs_id));
+    RT64::setRiceTextureDirectories(enabled ? std::vector<std::filesystem::path>{ texture_packs_path() } : std::vector<std::filesystem::path>{});
+    recompui::renderer::trigger_texture_pack_update();
+}
+
+void snp::config::lock_game_start_options() {
+    if (graphics_options_added) {
+        recompui::config::get_graphics_config().update_option_disabled(texture_packs_id, true);
+    }
 }
 
 uint32_t snp::config::get_screen_filter() {
