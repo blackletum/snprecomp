@@ -9,6 +9,14 @@ if (APPLE)
 endif()
 
 project(SnPRecompiled LANGUAGES C CXX)
+
+# The default "Developer PowerShell for VS 2022" is set up for 32-bit: linking
+# then fails with "machine type x86 conflicts with x64" (BUILDING.md).
+if (WIN32 AND "$ENV{VSCMD_ARG_TGT_ARCH}" STREQUAL "x86")
+    message(FATAL_ERROR "This Developer PowerShell is set up for 32-bit (x86). Switch it to 64-bit with:\n"
+        "  & \"$ENV{VSINSTALLDIR}Common7\\Tools\\Launch-VsDevShell.ps1\" -Arch amd64 -HostArch amd64\n"
+        "then cd back to this folder and run the cmake commands again.")
+endif()
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

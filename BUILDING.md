@@ -75,9 +75,12 @@ cmake --build build --target SnPRecompiled -j$(nproc)
 ./build/SnPRecompiled
 ```
 
-**Windows** (in a Developer PowerShell for VS 2022, x64):
+**Windows** (in a Developer PowerShell for VS 2022, x64; the Start menu's one
+is 32-bit, so switch it first):
 
 ```powershell
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+cd C:\path\to\snprecomp
 $env:SNP_CLANGCL = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe"
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="$env:SNP_CLANGCL" -DCMAKE_CXX_COMPILER="$env:SNP_CLANGCL"
 cmake --build build --target N64RecompCLI
