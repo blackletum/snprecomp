@@ -172,6 +172,15 @@ func = "func_800AB924"
 before_vram = 0x800ABB9C
 text = "{ extern uint32_t snp_reticle_limit_bits(int32_t); ctx->r3 = (int32_t)snp_reticle_limit_bits(1); } // snp: reticle reach"
 
+# --- Enhancements and cheats -------------------------------------------------
+# func_800D42F8 copies the progress block into the save buffer before the game
+# saves: the real clear records go back in while the OPT. menu is unlocked
+# (src/game/extras.cpp).
+[[patches.hook]]
+func = "func_800D42F8"
+before_vram = 0x800D431C
+text = "snp_extras_saving(rdram); // snp: unlocks don't change the save"
+
 # --- Busy-wait loops ------------------------------------------------------
 # These loops poll a flag with no OS call, which never lets the runtime run
 # another thread or deliver events. Yield on each pass

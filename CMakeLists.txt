@@ -262,22 +262,6 @@ if (NOT SOURCES)
     file(WRITE ${CMAKE_BINARY_DIR}/snp_placeholder.cpp
         "int main() { return 0; } // No game source found -- see BUILDING.md.\n")
     set(SOURCES ${CMAKE_BINARY_DIR}/snp_placeholder.cpp)
-    set(SNP_FORKED_RUNTIME OFF)
-else()
-    # The compat shims (src/game/stock_runtime_compat.cpp) provide things a game-specific runtime fork would otherwise
-    # already have, such as osSp*Status_recomp, SI/PFS and the SP_STATUS/DPC helpers, and building
-    # both gives redefinition and duplicate symbol errors. Detect a fork by the SP_STATUS helpers it
-    # would add to librecomp/rsp.hpp and leave the shims out.
-    file(READ ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/include/librecomp/rsp.hpp SNP_RSP_HPP)
-    if(SNP_RSP_HPP MATCHES "get_sp_status")
-        set(SNP_FORKED_RUNTIME ON)
-        message(STATUS "Forked N64ModernRuntime detected -- stock compat shims disabled")
-        target_compile_definitions(SnPRecompiled PRIVATE SNP_FORKED_RUNTIME)
-        list(REMOVE_ITEM SOURCES
-            ${CMAKE_SOURCE_DIR}/src/game/stock_runtime_compat.cpp)
-    else()
-        set(SNP_FORKED_RUNTIME OFF)
-    endif()
 endif()
 
 target_include_directories(SnPRecompiled PRIVATE

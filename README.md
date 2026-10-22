@@ -20,7 +20,9 @@ included.** You need your own dump of the game to build or play this.
 - Framerates above 30 fps (Refresh Rate: Display or Manual) (experimental)
 - Higher resolutions and anti-aliasing
 - Twin-stick controller layout by default, fully remappable, and keyboard
-- Both the Japanese ROM and the English fan translation
+- Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
+  Scene Select, infinite health, time and continues
+- The Japanese ROM and translation patches of it
 
 ## Game Files
 

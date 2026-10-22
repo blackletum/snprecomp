@@ -490,6 +490,7 @@ int main(int argc, char** argv) {
     recompui::config::create_controls_tab();
     recompui::config::create_sound_tab();
     recompui::config::create_mods_tab();
+    snp::config::add_extras_tabs();
     recompui::config::finalize();
 
     recomp::rsp::callbacks_t rsp_callbacks{

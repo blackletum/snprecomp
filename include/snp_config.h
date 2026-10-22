@@ -10,6 +10,18 @@ namespace snp::config {
     void add_general_options(recomp::config::Config& general);
 
     bool get_rumble_pak();
+
+    // The Enhancements and Cheats tabs (src/main/extras_config.cpp). Call
+    // before recompui::config::finalize().
+    void add_extras_tabs();
+
+    enum class Option {
+        UnlockOptions,
+        InfiniteHealth,
+        InfiniteTime,
+        InfiniteContinues,
+    };
+    bool get_option(Option option);
 }
 
 // Widescreen (src/game/widescreen.cpp): how much wider than 4:3 RT64 is

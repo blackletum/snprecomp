@@ -707,6 +707,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
         dl = (uint32_t)MEM_W((prefix_commands - 1) * 8 + 4, (gpr)(int32_t)dl);
         MEM_W(0x30, task) = (int32_t)dl;
     }
+    snp_extras_frame(rdram);
     bool widen = snp::get_widescreen_scale() > 1.0f;
     interp_bank = (interp_bank + 1) % interp_banks;
     interp_entry = 0;
