@@ -11,6 +11,12 @@ namespace snp::config {
 
     bool get_rumble_pak();
 
+    // Screen Filter and Bloom at the end of the Graphics tab (RT64's
+    // ScreenFilter and Bloom values; src/main/extras_config.cpp).
+    void add_graphics_options(recomp::config::Config& graphics);
+    uint32_t get_screen_filter();
+    uint32_t get_bloom();
+
     // The Enhancements and Cheats tabs (src/main/extras_config.cpp). Call
     // before recompui::config::finalize().
     void add_extras_tabs();

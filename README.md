@@ -19,6 +19,7 @@ included.** You need your own dump of the game to build or play this.
   and the reticle reaching the full width (experimental)
 - Framerates above 30 fps (Refresh Rate: Display or Manual) (experimental)
 - Higher resolutions and anti-aliasing
+- Screen filters (CRT, Scanlines, LCD) and bloom
 - Twin-stick controller layout by default, fully remappable, and keyboard
 - Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
   Scene Select, infinite health, time and continues

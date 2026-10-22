@@ -486,7 +486,7 @@ int main(int argc, char** argv) {
     // RT64 creates on the graphics thread require it.
     recompui::config::GeneralTabOptions general_tab_options{};
     snp::config::add_general_options(recompui::config::create_general_tab(general_tab_options));
-    recompui::config::create_graphics_tab();
+    snp::config::add_graphics_options(recompui::config::create_graphics_tab());
     recompui::config::create_controls_tab();
     recompui::config::create_sound_tab();
     recompui::config::create_mods_tab();

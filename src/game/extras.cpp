@@ -1,5 +1,6 @@
-// The Enhancements and Cheats tabs' effects on the game (src/main/extras_config.cpp),
-// applied once a frame (snp_extras_frame, from the display list hook).
+// The Enhancements and Cheats tabs' effects on the game, and the Graphics
+// tab's screen filter and bloom (src/main/extras_config.cpp), applied once a
+// frame (snp_extras_frame, from the display list hook).
 //
 // Addresses (the game's own variables, the same for every supported ROM):
 //   0x800D5A94  time left (word)
@@ -12,6 +13,7 @@
 #include <cstdint>
 
 #include "recomp.h"
+#include "rt64_screen_filter.h"
 
 #include "snp_config.h"
 #include "snp_recomp_hooks.h"
@@ -41,6 +43,9 @@ namespace {
 extern "C" void snp_extras_frame(uint8_t* rdram) {
     using snp::config::Option;
     using snp::config::get_option;
+
+    RT64::setScreenFilter(static_cast<RT64::ScreenFilter>(snp::config::get_screen_filter()));
+    RT64::setBloom(static_cast<RT64::Bloom>(snp::config::get_bloom()));
 
     if (get_option(Option::InfiniteHealth)) {
         uint32_t& health = word_at(rdram, health_addr);

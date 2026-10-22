@@ -1,5 +1,5 @@
-// The Enhancements and Cheats tabs of the menu. The game reads them through
-// src/game/extras.cpp.
+// The Enhancements and Cheats tabs of the menu, and the screen filter and
+// bloom on the Graphics tab. The game reads them through src/game/extras.cpp.
 #include "snp_config.h"
 
 #include "recompui/config.h"
@@ -9,6 +9,22 @@ namespace {
     const std::string cheats_id = "cheats";
 
     bool tabs_added = false;
+    bool graphics_options_added = false;
+
+    const std::string screen_filter_id = "screen_filter";
+    const std::vector<recomp::config::ConfigOptionEnumOption> screen_filter_options = {
+        {0, "None", "None"},
+        {1, "CRT", "CRT"},
+        {2, "Scanlines", "Scanlines"},
+        {3, "LCD", "LCD"},
+    };
+
+    const std::string bloom_id = "bloom";
+    const std::vector<recomp::config::ConfigOptionEnumOption> bloom_options = {
+        {0, "Off", "Off"},
+        {1, "Low", "Low"},
+        {2, "High", "High"},
+    };
 
     bool get_bool(const std::string& tab, const char* id) {
         if (!tabs_added) {
@@ -16,6 +32,27 @@ namespace {
         }
         return std::get<bool>(recompui::config::get_config(tab).get_option_value(id));
     }
+}
+
+// At the end of the Graphics tab.
+void snp::config::add_graphics_options(recomp::config::Config& graphics) {
+    graphics_options_added = true;
+    graphics.add_enum_option(screen_filter_id, "Screen Filter", "", screen_filter_options, 0);
+    graphics.add_enum_option(bloom_id, "Bloom", "", bloom_options, 0);
+}
+
+uint32_t snp::config::get_screen_filter() {
+    if (!graphics_options_added) {
+        return 0;
+    }
+    return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(screen_filter_id));
+}
+
+uint32_t snp::config::get_bloom() {
+    if (!graphics_options_added) {
+        return 0;
+    }
+    return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(bloom_id));
 }
 
 void snp::config::add_extras_tabs() {
