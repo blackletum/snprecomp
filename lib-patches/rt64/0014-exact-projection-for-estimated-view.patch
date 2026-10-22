@@ -4,7 +4,7 @@
          v[2][1] = vp[2][1] / p[1][1];
          v[3][1] = vp[3][1] / p[1][1];
  
-+        // BattleTanx recomp: make the projection exact for this view, so view x projection is the game's own matrix.
++        // Recomp: make the projection exact for this view, so view x projection is the game's own matrix.
 +        // The estimate above varies a little from frame to frame with the fixed-point input, and interpolated frames
 +        // render with it (real frames use the game's matrix): the world's depth shifted by several units between the
 +        // two, so sprites drawn with the game's own projection right against geometry (explosions) passed the depth

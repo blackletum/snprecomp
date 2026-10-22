@@ -4,7 +4,7 @@ Subject: Give the VR4300's results for division by zero instead of a host except
 DIV/DIVU by zero on the N64 doesn't trap: the quotient is -1 (1 for a
 negative signed dividend) and the remainder is the dividend. Sin and
 Punishment has 1111 divisions without zero checks, and divides by zero when
-starting a game. (snprecomp STATUS.md round 3)
+starting a game.
 
 diff --git a/include/recomp.h b/include/recomp.h
 index 73f3e73..0396207 100644

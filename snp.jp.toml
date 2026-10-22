@@ -23,7 +23,8 @@ text = "snp_segment_loaded(rdram, (int32_t)ctx->r21); // snp: register loaded se
 
 # --- Frame display lists --------------------------------------------------
 # Right before each osSpTaskLoad in the game's task threads, with the OSTask
-# in $a0: widescreen fixes and a diagnostic (src/game/display_list.cpp).
+# in $a0: widescreen, HUD anchoring and interpolation IDs
+# (src/game/display_list.cpp).
 [[patches.hook]]
 func = "func_8004E640"
 before_vram = 0x8004E73C
@@ -67,7 +68,7 @@ func = "func_80029070"
 before_vram = 0x8002917C
 text = "{ extern float snp_cull_width_scale(void); ctx->f0.fl *= snp_cull_width_scale(); } // snp: widescreen culling"
 
-# --- Interpolation IDs for character limbs ---------------------------------
+# --- Interpolation IDs ------------------------------------------------------
 # Characters are posed by func_80032F2C, which walks a skeleton: $s2 is the
 # character's pose entry for the current joint (0x20 bytes per joint, the same
 # address every frame). For each joint it calls func_80032CDC or

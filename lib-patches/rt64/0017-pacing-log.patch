@@ -15,7 +15,7 @@
                  swapChainValid = ext.swapChain->present(swapChainIndex, &waitSemaphore, 1);
                  presentProfiler.logAndRestart();
 +
-+                // Sin and Punishment recomp: with SNP_PACING_LOG=1, when each frame is handed to the swap chain and
++                // Recomp: with SNP_PACING_LOG=1, when each frame is handed to the swap chain and
 +                // when that call returns (snp_present.log), to see whether frames reach the display evenly.
 +                static FILE *presentLog = getenv("SNP_PACING_LOG") ? fopen("snp_present.log", "w") : nullptr;
 +                if (presentLog != nullptr) {
@@ -61,7 +61,7 @@
                      framesRendered++;
                  }
  
-+                // Sin and Punishment recomp: SNP_PACING_LOG=1 writes each game frame's frame pacing to snp_pacing.log
++                // Recomp: SNP_PACING_LOG=1 writes each game frame's frame pacing to snp_pacing.log
 +                // (the game's rate, the display rate, the frames generated and rendered, skips and timing resets),
 +                // to see on someone's machine why motion is uneven at the display rate.
 +                static FILE *pacingLog = getenv("SNP_PACING_LOG") ? fopen("snp_pacing.log", "w") : nullptr;

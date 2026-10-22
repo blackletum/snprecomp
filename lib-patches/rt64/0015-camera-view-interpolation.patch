@@ -4,7 +4,7 @@
          matrix[3][0] *= aspectRatioScale;
      }
      
-+    // BattleTanx recomp: interpolate a view matrix as a camera. Blending the matrix component by component moves
++    // Recomp: interpolate a view matrix as a camera. Blending the matrix component by component moves
 +    // the camera along the chord of its turn in view space, and the world's objects are interpolated separately in
 +    // world space, so they don't stay put in front of a turning camera: a chase camera swinging round its tank
 +    // threw the tank sideways in every in-between frame (about 13 units at mid-frame for a 15 degree turn 100 units

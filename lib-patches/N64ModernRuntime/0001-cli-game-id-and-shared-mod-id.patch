@@ -2,7 +2,7 @@ From: snprecomp
 Subject: --game: accept a full game id, and pick the first game with a valid ROM
 
 Two supported ROMs of one game share a mod game id; the CLI used to stop at
-the first match even when its ROM was missing. (snprecomp STATUS.md round 2)
+the first match even when its ROM was missing.
 
 diff --git a/librecomp/src/recomp.cpp b/librecomp/src/recomp.cpp
 index 850689d..ca35802 100644

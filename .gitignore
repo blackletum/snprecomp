@@ -78,3 +78,6 @@ assets/unk_*.bin
 build-release/
 dist/
 build-release-linux/
+
+# Python bytecode
+__pycache__/

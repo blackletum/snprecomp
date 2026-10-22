@@ -1,7 +1,6 @@
 // Widescreen state shared with the game fixes. RT64's Expand mode draws the
-// wider view itself; game-specific fixes (HUD anchoring, the crosshair's
-// screen-to-world mapping, culling at the screen edges) read the scale from
-// here as they're added.
+// wider view itself; the game's culling at the screen edges, the reticle's
+// reach and the display list fixes read the scale from here.
 #include <atomic>
 #include <cstdint>
 #include <cstring>

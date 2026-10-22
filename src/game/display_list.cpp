@@ -1,31 +1,21 @@
-// The game's frame display lists, just before a task thread loads them
-// (hooked before each osSpTaskLoad in func_8004E640 / func_8004E4A0,
-// snp.jp.toml).
+// Edits to each frame's display list just before a task thread loads it
+// (hooked before each osSpTaskLoad, snp.jp.toml): widescreen, HUD anchoring
+// and interpolation IDs.
 //
-// Widescreen (STATUS.md round 5). The game draws every frame inside an
-// inset, scissor 12,8 - 308,231, clears only that area, and at the end draws
-// a black border around it with the scissor opened to the full screen. RT64
-// widens a 3D view in Expand only when its scissor spans the whole screen
-// width, so the picture stayed 4:3, and the side areas, which nothing clears,
-// kept whatever was drawn there before (old frames, and the crosshair's
-// translucent full-width lines piling up into stripes). In Expand, the inset
-// scissor becomes the full screen, fill rectangles spanning the inset's
-// width (the clear, fades and tints, backdrop bands) span the screen, and
-// the border is dropped. Fades and tints, a full-screen quad drawn with the
-// 2D projection, are widened (widen_screen_quad), and frames that start with
-// a full-screen 4:3 picture get a clear to black first (clear_prefix).
-// Original aspect is left alone.
+// Widescreen: the game draws every frame inside an inset (scissor 12,8 -
+// 308,231), clears only that area and draws a black border around it. RT64
+// only widens a 3D view whose scissor spans the screen, so in Expand the inset
+// scissor and the fill rectangles spanning it become full screen and the
+// border is dropped. Original aspect is left alone.
 //
 // Diagnostic: with SNP_DL_DIAG set, every SNP_DL_DIAG_INTERVAL-th (default
-// 300) graphics task's color images, scissors, viewports, matrices, small
-// vertex loads, fill and texture rectangles, textures, colors, combine and
-// render modes are printed as they're walked.
+// 300) graphics task's commands of interest are printed as they're walked.
 #include <algorithm>
 #include <chrono>
-#include <vector>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstdint>
+#include <vector>
 
 #include "recomp.h"
 
@@ -82,23 +72,17 @@ namespace {
         return 0x80000000u | ((segments[(addr >> 24) & 0xF] + (addr & 0x00FFFFFF)) & 0x00FFFFFF);
     }
 
-    // Copies of full-screen quads, widened (widen_screen_quad), in RAM the game
-    // doesn't use: it lays itself out in the first 4 MB (the last framebuffer
-    // ends at 0x80400000). Used in turn, so a frame the renderer hasn't read
-    // yet keeps its copies.
+    // Scratch lists and copies go in RAM the game doesn't use (it only uses
+    // the first 4 MB). Each area is used in turn, so a frame the renderer
+    // hasn't read yet keeps its copies.
     constexpr uint32_t quad_area = 0x807F0000;
     constexpr uint32_t quad_slots = 64;
     constexpr uint32_t quad_bytes = 4 * 16;
     uint32_t quad_slot = 0;
 
-    // Fades and tints (scene cross-fades, the red flash, the eyes shot's black)
-    // are a 4-vertex quad over the whole screen, -160..160
-    // by -120..120, drawn with the game's 2D projection. RT64 keeps 2D
-    // projections at 4:3 so the HUD isn't stretched, which left these as a 4:3
-    // box. In Expand, the vertex load is pointed at a copy (made every frame,
-    // after the game has set this frame's colors) four times as wide, clipped to
-    // the screen by the scissor. The game's vertices are left alone; the command
-    // is in the frame's own display list, rebuilt each frame.
+    // Fades and tints are a 4-vertex quad over the screen (-160..160 by
+    // -120..120) drawn with the 2D projection, which RT64 keeps at 4:3. In
+    // Expand the vertex load points at a copy four times as wide.
     void widen_screen_quad(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         if (((w0 >> 12) & 0xFF) != 4) {
             return;
@@ -124,21 +108,17 @@ namespace {
         set_command(rdram, addr, w0, dst);
     }
 
-    // Also used after switching back to Original (snp_display_list_hook).
-    // Frames that start with a full-screen picture (the title screen's backdrop,
-    // drawn as tiles) don't clear the screen: on the N64 the picture covers it.
-    // In Expand the picture stays 4:3 (stretching it would distort the art), so
-    // the sides kept whatever was drawn there before. Such frames get a prefix
-    // that clears the whole screen to black first and then branches to the
-    // game's display list. Used in turn, like the quad copies.
+    // A prefix that clears the screen to black and then branches to the
+    // game's list: for frames that start with a full-screen 4:3 picture (the
+    // title backdrop; nothing clears the sides in Expand), and after switching
+    // back to Original.
     constexpr uint32_t prefix_area = 0x807F2000;
     constexpr uint32_t prefix_slots = 8;
     constexpr uint32_t prefix_commands = 16; // the branch to the game's list is the last
     constexpr uint32_t prefix_bytes = prefix_commands * 8;
 
-    // The color images (screen-wide) a frame draws to, in order. In gameplay
-    // the first is an effect buffer and the picture shown is drawn after it
-    // into the frame's own framebuffer.
+    // The screen-wide color images a frame draws to, in order (in gameplay
+    // the first is an effect buffer, not the framebuffer shown).
     constexpr uint32_t max_cimgs = 4;
     uint32_t cimgs[max_cimgs][2];
     uint32_t cimg_count = 0;
@@ -172,15 +152,10 @@ namespace {
         return prefix;
     }
 
-    // The zoom into the title draws the title picture over the whole screen,
-    // then the zoom effect only over rows 8 - 231 (its scissor). Rows 0 - 7
-    // and 232 - 239 are outside the game's picture area, black on the N64
-    // (and at Original aspect), but Expand shows all 240 rows, so they kept
-    // the sharp title picture, flashing against the zoom. In Expand, frames
-    // that start with a full-screen picture and set that scissor end with
-    // those rows filled black: the frame's closing full sync (the renderer
-    // ignores anything drawn after it) is replaced with a branch to a short
-    // list that fills them, syncs and ends.
+    // The zoom into the title draws its effect over rows 8 - 231 only; Expand
+    // shows all 240 rows, so the rest kept the title picture. Such frames end
+    // with rows 0 - 7 and 232 - 239 filled black: the closing full sync is
+    // replaced with a branch to a list that fills them, syncs and ends.
     constexpr uint32_t suffix_area = 0x807F3000;
     constexpr uint32_t suffix_slots = 8;
     constexpr uint32_t suffix_bytes = 8 * 8;
@@ -213,20 +188,15 @@ namespace {
         return addr >= prefix_area && addr < prefix_area + prefix_slots * prefix_bytes;
     }
 
-    // Interpolation IDs (Refresh Rate above the game's 30 fps). Every
-    // modelview load gets a matrix group in front of it: a character limb's
-    // ID, recorded as its matrix was built (src/game/interpolation.cpp), or
-    // RT64's automatic matching for everything else (scenery, sprites, the 2D
-    // projection), so no load inherits a limb's group. The load is replaced
-    // with a call to a short list in unused RAM holding the group and the
-    // original load.
+    // Interpolation IDs (src/game/interpolation.cpp). Every modelview load is
+    // replaced with a call to a short list holding a matrix group (its ID, or
+    // automatic) and the original load, so no load inherits another's group.
     constexpr uint32_t interp_area = 0x80700000;
     constexpr uint32_t interp_banks = 4;
     constexpr uint32_t interp_bank_bytes = 0x10000;
     constexpr uint32_t interp_entry_bytes = 5 * 8;
     constexpr uint32_t interp_entries = interp_bank_bytes / interp_entry_bytes;
     constexpr uint32_t G_EX_ID_AUTO = 0xFFFFFFFF;
-    bool interp_tags = true;
     uint32_t interp_bank = 0;
     uint32_t interp_entry = 0;
 
@@ -234,30 +204,18 @@ namespace {
         return addr >= interp_area && addr < interp_area + interp_banks * interp_bank_bytes;
     }
 
-    // gEXMatrixGroup parameters. Tagged (character) matrices always interpolate
-    // (RT64's automatic setting drops position on a frame where the speed jumps,
-    // which itself looks like jitter), and are blended entry by entry rather
-    // than decomposed: the game builds bone matrices as scale-then-rotate, so
-    // many are strongly skewed in the convention RT64 decomposes them in (axes
-    // up to cos 0.88 apart), and blending the rotation, scale and skew it got
-    // separately warped coats and limbs on in-between frames. Untagged ones,
-    // and other objects with IDs, keep RT64's automatic settings. Vertices
-    // and texture coordinates are skipped.
-    uint32_t matrix_group_params(bool tagged, bool numbered) {
+    // gEXMatrixGroup parameters. Skeleton (limb) matrices always interpolate
+    // and are blended entry by entry: the game's bone matrices are skewed, and
+    // decomposing them warped limbs on in-between frames. Everything else
+    // keeps RT64's automatic settings. A numbered ID is unique in the frame and
+    // is paired directly (G_EX_ORDER_LINEAR), otherwise by closeness.
+    uint32_t matrix_group_params(bool skeleton, bool numbered) {
         constexpr uint32_t interpolate = 1, automatic = 2;
-        const uint32_t motion = tagged ? interpolate : automatic;
-        // An ID with its skeleton's instance number is the only one in the
-        // frame and is paired with last frame's directly (G_EX_ORDER_LINEAR).
-        // Repeats of an ID without one (enemies of one kind sharing a pose)
-        // are paired by closeness (G_EX_ORDER_AUTO), not in drawing order:
-        // the depth sort swapped them now and then. Automatic ordering only
-        // pairs matrices whose draw calls look the same in both frames, so a
-        // numbered one paired that way went unpaired whenever its calls
-        // changed and snapped to its new place (whole insects jittered).
+        const uint32_t motion = skeleton ? interpolate : automatic;
         const uint32_t order = numbered ? 0u : 1u;
         return (0u << 0) |   // no push
             (0u << 1) |      // modelview
-            ((tagged ? 0u : 1u) << 2) | // decompose (untagged only)
+            ((skeleton ? 0u : 1u) << 2) | // decompose
             (motion << 3) |  // position
             (motion << 5) |  // rotation
             (motion << 7) |  // scale
@@ -272,9 +230,8 @@ namespace {
             (automatic << 24); // look-at
     }
 
-    // Matrix loads tagged this frame that belong to a skeleton instance: the
-    // entry and the instance. Their IDs get the instance's number once the
-    // whole display list has been walked (number_tagged_instances).
+    // Matrix loads this frame that belong to an instance (a skeleton or an
+    // object). Their IDs get the instance's number after the walk.
     struct InstanceTag {
         uint32_t entry;
         uint32_t id;
@@ -308,9 +265,8 @@ namespace {
         set_command(rdram, addr, 0xDE000000, entry);
     }
 
-    // After the walk: number the skeleton instances this display list draws
-    // (all of them at once, matched to the ones drawn last time) and put the
-    // numbers into their matrices' IDs.
+    // After the walk: number the instances this display list draws (all at
+    // once) and put the numbers into their matrices' IDs.
     void number_tagged_instances(uint8_t* rdram) {
         if (instance_tags.empty()) {
             return;
@@ -329,17 +285,10 @@ namespace {
         instance_tags.clear();
     }
 
-    // Texture rectangles at higher resolutions. HUD text and numbers are drawn
-    // 1:1 from a font sheet, each glyph's rectangle starting right at its
-    // first texel: horizontally the previous glyph sits next to it, and
-    // vertically the glyphs start at row -1, which the 8-row wrap turns into
-    // the blank bottom row. At the N64's resolution every pixel samples at or
-    // after the start. Upscaled, the top and left edge pixels can land a hair
-    // before it, depending on the GPU and driver's rounding (seen on Direct3D
-    // 12): the previous glyph's last column and the glyph's own row 6 showed
-    // as thin lines left of and above HUD text and the floating hit counts.
-    // 1:1 rectangles start 1/32 texel later (the format's smallest step): at
-    // the N64's resolution each pixel still samples the same texel.
+    // HUD text is drawn as 1:1 texture rectangles starting exactly on a texel.
+    // Upscaled, edge pixels can round to the texel before it and show thin
+    // lines from the neighbouring glyph; 1:1 rectangles start 1/32 texel later,
+    // which samples the same texels at the N64's resolution.
     void nudge_rect_start(uint8_t* rdram, uint32_t addr) {
         uint32_t h0 = (uint32_t)MEM_W(0, (gpr)(int32_t)(addr + 8));  // RDPHALF_1: s, t (S10.5)
         uint32_t h1 = (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + 8));
@@ -353,19 +302,14 @@ namespace {
         set_command(rdram, addr + 8, h0, ((uint32_t)(uint16_t)s << 16) | (uint16_t)t);
     }
 
-    // HUD anchoring in Expand, as btgarecomp does it: RT64 keeps 2D
-    // rectangles in the centred 4:3 area unless the display list anchors them
-    // to a screen edge (gEXSetRectAlign). The HUD is drawn after the game loads
-    // its fixed 2D projection (0x802C3AE0). Its top band, y < 40, has the
-    // score on the left (x 55 - 128), TIME in the middle and LIFE with its bar
-    // on the right (x 194 - 297). Rectangles lying entirely in that band are
-    // anchored by their centre: left of 128 to the left edge, right of 192 to
-    // the right, both 16 pixels further out (the original layout keeps a TV
-    // margin), the rest left centred. Each is replaced with a call to a short
-    // list that sets the alignment and a whole-window scissor (RT64 clips to
-    // the scissor, which is otherwise squeezed into the 4:3 area), draws the
-    // rectangle, and restores both. Lower things (the crosshair's lines,
-    // tutorial boxes, subtitles, the boss bar) are left alone.
+    // HUD anchoring in Expand. RT64 keeps 2D rectangles in the centred 4:3
+    // area unless they're anchored to an edge (gEXSetRectAlign). The HUD is
+    // drawn after the game loads its 2D projection (0x802C3AE0); its top band
+    // has the score on the left, TIME in the middle and LIFE on the right.
+    // Elements there are anchored to the nearer edge, 16 pixels further out
+    // (the original keeps a TV margin): each rectangle is replaced with a call
+    // to a list that sets the alignment and a whole-window scissor, draws it
+    // and restores both. Everything lower is left alone.
     constexpr uint32_t hud_projection = 0x802C3AE0;
     constexpr uint32_t hud_area = 0x807A0000;
     constexpr uint32_t hud_banks = 4;
@@ -386,40 +330,24 @@ namespace {
         return addr >= hud_area && addr < hud_area + hud_banks * hud_bank_bytes;
     }
 
-    // Which edge a rectangle (10.2 coordinates) in the top band is anchored
-    // to: true and the origin/offset, or false to leave it centred.
+    // The edge an element (bounds in 10.2) is anchored to, or false to leave
+    // it centred. It must start in the top band and end near it (the
+    // tutorial's box around the life gauge ends at about y 50). The side goes
+    // by where it starts or ends when that's clear of the middle (a shrinking
+    // bar's centre moves), otherwise by its centre.
     bool hud_origin(uint32_t ulx, uint32_t uly, uint32_t lrx, uint32_t lry, uint32_t& origin, int32_t& offset) {
-        // It must start in the band and end near it: the tutorial's box around
-        // the life gauge ends at about y 50; the crosshair's vertical line runs
-        // the full height and follows the reticle, so it must never be anchored.
         if (uly >= hud_band_bottom || lry >= hud_element_bottom) {
             return false;
         }
-        // Which side: by where it starts or ends when that's clear of the
-        // middle, otherwise by its centre. A health bar shrinks towards one
-        // end, so its centre moves: an enemy's bar on the right that started
-        // past the middle jumped back to its 4:3 place once its centre crossed
-        // over, and forth again as it refilled. The TIME counter in the middle
-        // stays put either way.
         uint32_t centre = (ulx + lrx) / 2;
-        if (ulx >= 176 * 4) {
+        if (ulx >= 176 * 4 || centre > 192 * 4) {
             origin = origin_right;
             offset = right_origin_shift + hud_margin;
             return true;
         }
-        if (lrx <= 144 * 4) {
+        if (lrx <= 144 * 4 || centre < 128 * 4) {
             origin = origin_left;
             offset = -hud_margin;
-            return true;
-        }
-        if (centre < 128 * 4) {
-            origin = origin_left;
-            offset = -hud_margin;
-            return true;
-        }
-        if (centre > 192 * 4) {
-            origin = origin_right;
-            offset = right_origin_shift + hud_margin;
             return true;
         }
         return false;
@@ -457,17 +385,11 @@ namespace {
         }
     }
 
-    // A HUD element is a run of rectangles drawn back to back (texture and
-    // fill rectangles, with only state changes between them) that touch or
-    // overlap, directly or through others: a string's glyphs, a number's
-    // digits, the life bar's frame and fill, the tutorial's box around it.
-    // Each is anchored as a whole by its bounds, so nothing comes apart, and a
-    // centred string stays centred. The crosshair's lines and the life bar
-    // come back to back but don't touch.
-    // The life bar's moving highlight is drawn in 1-pixel columns: a run with
-    // it and the crosshair's lines is about 85 rectangles (with 64, the
-    // columns past the limit weren't anchored and parts of the bar showed at
-    // the 4:3 place). A run that still fills up is anchored in parts.
+    // A HUD element is a run of rectangles drawn back to back (only state
+    // changes between them) that touch, directly or through others: a string's
+    // glyphs, the life bar's frame and fill. Each is anchored as a whole by its
+    // bounds. The life bar's highlight is drawn in 1-pixel columns, so runs
+    // reach about 85 rectangles; a run that fills up is anchored in parts.
     constexpr uint32_t max_fill_run = 256;
     struct HudRect {
         uint32_t addr, words, ulx, uly, lrx, lry;
@@ -475,13 +397,10 @@ namespace {
     HudRect fill_run[max_fill_run];
     uint32_t fill_run_count = 0;
 
-
-    // The crosshair's vertical line, with the reticle reaching into the wider
-    // view in Expand (snp.jp.toml): past the right of the 4:3 picture it's
-    // drawn beyond x 320, which the game's scissor cuts off, and past the
-    // left its x goes negative, which the rectangle's 12-bit coordinates wrap
-    // round to near 1024. It's drawn with the whole window as the scissor,
-    // a wrapped one moved back by 1024.
+    // The crosshair's vertical line when the reticle is past the 4:3 picture
+    // (Expand): beyond x 320 the game's scissor cuts it off, and left of 0 its
+    // 12-bit x wraps to near 1024. It's drawn with the whole window as the
+    // scissor, a wrapped one moved back by 1024.
     void place_crosshair_line(uint8_t* rdram, const HudRect& r) {
         if (r.words != 1 || r.lry - r.uly < 200 * 4 || r.lrx - r.ulx > 8 * 4) {
             return;
@@ -503,11 +422,8 @@ namespace {
         }
         auto find = [&](uint32_t i) { while (shape[i] != i) i = shape[i] = shape[shape[i]]; return i; };
         constexpr uint32_t touch = 1 * 4;
-        // The crosshair's lines (the full height and the full width) join
-        // nothing: when the reticle moved right, its vertical line crossed the
-        // life bar, the two became one element too tall to be HUD, and the bar
-        // dropped back to its 4:3 place; aimed high, the horizontal one would
-        // join the whole top HUD into one element.
+        // The crosshair's full-height and full-width lines join nothing, or
+        // crossing the HUD they'd make it one element too big to anchor.
         auto joins = [&](const HudRect& r) {
             return r.uly < hud_band_bottom && r.lry < hud_element_bottom && r.lrx - r.ulx < 240 * 4;
         };
@@ -765,7 +681,7 @@ namespace {
                     if ((((w0 & 0xFF) ^ 1) & 4) != 0) { // projection
                         in_hud = (w1 == hud_projection);
                     }
-                    if (interp_tags && (((w0 & 0xFF) ^ 1) & 4) == 0) { // modelview
+                    else { // modelview
                         tag_matrix(rdram, addr, w0, w1);
                     }
                     break;
@@ -792,8 +708,6 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
         MEM_W(0x30, task) = (int32_t)dl;
     }
     bool widen = snp::get_widescreen_scale() > 1.0f;
-    static const bool tags_off = [] { const char* v = std::getenv("SNP_INTERP_TAGS"); return v && v[0] == '0'; }();
-    interp_tags = !tags_off;
     interp_bank = (interp_bank + 1) % interp_banks;
     interp_entry = 0;
     snp::interp_new_frame();
@@ -818,11 +732,10 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     walk(rdram, dl, 0, widen, true);
     end_fill_run(rdram);
     number_tagged_instances(rdram);
-    // Switching from Expand back to Original leaves the wide picture in the
-    // strips outside the game's 4:3 inset, which the game never clears (black
-    // from boot on the N64): the first frames after the switch clear every
-    // color image they draw to first (in gameplay the first one is an effect
-    // buffer, not the picture), enough for all three framebuffers.
+    // After switching from Expand back to Original, the strips outside the
+    // inset keep the wide picture (the game never clears them): the first
+    // frames clear every color image they draw to, enough for all three
+    // framebuffers.
     static bool was_widened = false;
     static int clear_after_switch = 0;
     if (was_widened && !widen) {

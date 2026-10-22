@@ -6,7 +6,7 @@
 // a code section's functions (for indirect calls and calls between
 // segments) only when one DMA covers the whole section, so the larger
 // overlays were never registered. The hook in snp.jp.toml calls this once
-// the copy is done instead (STATUS.md round 2).
+// the copy is done instead.
 #include <algorithm>
 #include <cstdint>
 

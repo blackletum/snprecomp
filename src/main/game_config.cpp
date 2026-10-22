@@ -8,7 +8,7 @@ namespace {
 
     // Looked up by id on each read: the Config& create_general_tab() returns
     // lives in a container that moves when later tabs are created, so a
-    // pointer kept from it dangles (btgarecomp round 96).
+    // pointer kept from it dangles.
     bool options_added = false;
 }
 

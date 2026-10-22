@@ -6,8 +6,8 @@
 // On the N64, interrupts preempt them whenever an event wakes another
 // thread. The runtime's scheduler only switches threads inside OS calls, and
 // only delivers VI and other events when a game thread waits for one, so a
-// spinning thread kept every other thread waiting forever (STATUS.md round
-// 2). The hooks in snp.jp.toml call snp_spin_yield on each pass instead.
+// spinning thread kept every other thread waiting forever. The hooks in
+// snp.jp.toml call snp_spin_yield on each pass instead.
 #include <cstdint>
 
 #include "ultramodern/ultramodern.hpp"
@@ -23,7 +23,7 @@ extern "C" void osSetThreadPri(uint8_t* rdram, int32_t t, int32_t pri);
 extern "C" void snp_spin_yield(uint8_t* rdram) {
     // Wait up to 1 ms for an event (so the loop doesn't spin a host core),
     // then deliver every pending one: the runtime's own delivery takes one
-    // at a time and can fall behind (btgarecomp round 65).
+    // at a time and can fall behind.
     ultramodern::wait_for_external_message_timed(rdram, 1);
     dequeue_external_messages(rdram);
     ultramodern::check_running_queue(rdram);
@@ -31,9 +31,7 @@ extern "C" void snp_spin_yield(uint8_t* rdram) {
     // That only switches to a strictly higher-priority thread, but the thread
     // a loop waits on can have a lower priority than the spinning one (the
     // job thread, for the main thread). Dropping to priority 0 for a moment
-    // lets every ready thread run first (btgarecomp round 52). (For the idle
-    // thread, already at 0, this does nothing: osSetThreadPri returns early
-    // when the priority doesn't change, hence the explicit check above.)
+    // lets every ready thread run first. (The idle thread is already at 0.)
     int32_t pri = osGetThreadPri(rdram, 0);
     if (pri != 0) {
         osSetThreadPri(rdram, 0, 0);

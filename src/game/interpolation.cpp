@@ -1,16 +1,12 @@
-// Interpolation IDs for character limbs (Refresh Rate above the game's 30
-// fps). Characters are drawn limb by limb, each limb a matrix load, and the
-// limbs are drawn from depth-sorted buckets, so their order changes from
-// frame to frame. RT64 pairs matrices between frames by guessing, and with
-// several soldiers sharing one model it paired a limb with another soldier's:
-// pieces of models jumped about on the in-between frames. Each limb's matrix
-// is recorded here as it's built, with the character's pose entry for the
-// joint (unique per character and joint, the same every frame) and the mesh,
-// and the display list pass (src/game/display_list.cpp) gives its load that
-// ID. Enemies of a kind in a group (a swarm) can share one pose, so each
-// drawn skeleton is also an instance: once a display list has been walked,
-// the instances it draws are numbered by matching them to the ones of their
-// kind drawn last time, and the numbers go into their IDs. Hooks: snp.jp.toml.
+// Interpolation IDs, so RT64 pairs each matrix with the same one last frame
+// instead of guessing (alike models swapped parts on in-between frames).
+//
+// Matrices are recorded as they're built (hooks in snp.jp.toml): a skeleton's
+// limbs by joint and mesh, any other matrix as an object of the kind its
+// caller makes. Each skeleton and object is an instance; after a display list
+// has been walked (src/game/display_list.cpp), the instances it draws are
+// numbered by matching them to those of their kind drawn last time, and the
+// number goes into their IDs.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -23,21 +19,19 @@ namespace {
     uint32_t current_joint = 0;
     uint32_t generation = 0;
 
-    // A skeleton as drawn (or another object's matrix): what kind it is and
-    // where its first matrix puts it.
+    // A skeleton or object as drawn: its kind, where its first matrix puts it
+    // and (objects only) its normalized axes.
     struct Instance {
         uint32_t key = 0;
         float pos[3] = {};
-        float axes[3][3] = {}; // an object's normalized axes (zero for a skeleton)
+        float axes[3][3] = {};
         uint32_t number = 0;
         uint32_t built = 0; // generation
     };
     std::unordered_map<uint32_t, Instance> instances; // serial -> instance
     uint32_t current_instance = 0;
     uint32_t current_kind = 0;
-    // Serials of other objects' matrices (snp_interp_object_matrix), apart
-    // from skeletons'.
-    constexpr uint32_t object_serials = 0x80000000;
+    constexpr uint32_t object_serials = 0x80000000; // objects' serials, apart from skeletons'
     uint32_t object_serial = 0;
     // The matrix snp_interp_matrix just recorded (guMtxF2L builds it next).
     uint32_t recorded_matrix = 0;
@@ -56,15 +50,14 @@ namespace {
         uint32_t generation;
         uint32_t instance;
     };
-    // Matrix address (from the frame's matrix pool) -> ID.
+    // Matrix address -> ID and instance.
     std::unordered_map<uint32_t, Entry> matrices;
 
-    // Per kind, the numbered instances drawn in the latest display list that
-    // had any.
+    // Per kind, the instances drawn in the latest display list that had any.
     struct Placed {
         float pos[3];
         float axes[3][3];
-        float vel[3]; // since the time before, if it was numbered then too
+        float vel[3]; // since the time before
         uint32_t number;
     };
     std::unordered_map<uint32_t, std::vector<Placed>> kinds;
@@ -77,46 +70,36 @@ namespace {
     // How differently two objects are turned, 0 (alike) to 6, as RT64 measures
     // it; 0 if either has no axes (a skeleton).
     float orientation_difference(const float (&a)[3][3], const float (&b)[3][3]) {
+        auto none = [](const float (&m)[3][3]) { return m[0][0] == 0.0f && m[0][1] == 0.0f && m[0][2] == 0.0f; };
+        if (none(a) || none(b)) {
+            return 0.0f;
+        }
         float d = 0.0f;
         for (int i = 0; i < 3; i++) {
-            float dot = a[i][0] * b[i][0] + a[i][1] * b[i][1] + a[i][2] * b[i][2];
-            float la = a[i][0] * a[i][0] + a[i][1] * a[i][1] + a[i][2] * a[i][2];
-            float lb = b[i][0] * b[i][0] + b[i][1] * b[i][1] + b[i][2] * b[i][2];
-            if (la == 0.0f || lb == 0.0f) {
-                return 0.0f;
-            }
-            d += 1.0f - dot;
+            d += 1.0f - (a[i][0] * b[i][0] + a[i][1] * b[i][1] + a[i][2] * b[i][2]);
         }
         return d;
     }
 
-    // Number one kind's instances in a display list: pairs of one now and one
-    // last time are taken closest first, each taking that one's number, and
-    // the rest get new numbers. (Taking them one at a time in draw order let
-    // an enemy that just appeared take the number of the one beside it, which
-    // then paired with it on the in-between frames.)
+    // Number one kind's instances in a display list. Pairs of one now and one
+    // last time are taken closest first, each taking that one's number; the
+    // rest get new numbers. Closeness is to where its last movement would take
+    // the one from last time (fast rows of alike objects), plus how differently
+    // they're turned (alike layers in one place).
     void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now) {
         struct Pair {
             float d;
             uint32_t now;
             uint32_t before;
         };
-        // Nothing moves this far in a frame (RT64 doesn't pair matrices this far apart either).
+        // RT64 doesn't pair matrices further apart than this either.
         const float max_distance = 256.0f;
-        // Each one last time is expected where its speed then takes it: the
-        // boss's fire wave is a row of alike panels rushing at the camera,
-        // each moving further in a frame than half the gap to the next, and by
-        // where they were, a panel was paired with the one behind it and
-        // flickered back on the in-between frames.
         std::vector<Pair> pairs;
         for (uint32_t i = 0; i < now.size(); i++) {
             for (uint32_t j = 0; j < placed.size(); j++) {
                 if (distance2(now[i]->pos, placed[j].pos) > max_distance * max_distance) {
                     continue;
                 }
-                // And by how it's turned: a boss's energy fountains are alike
-                // spray layers in one place, turned differently, and by place
-                // alone a layer could be paired with another and swirl.
                 const Placed& p = placed[j];
                 const float expected[3] = { p.pos[0] + p.vel[0], p.pos[1] + p.vel[1], p.pos[2] + p.vel[2] };
                 const float turn = 64.0f * orientation_difference(now[i]->axes, p.axes);
@@ -165,10 +148,8 @@ namespace {
     }
 }
 
-// The skeleton walkers' entry points, before a skeleton is drawn: its
-// skeleton and animation arguments, what kind of skeleton it is. (Not the key
-// of its first matrix: which mesh comes first can change from frame to frame,
-// and an insect that changed kind got a new number and jumped.)
+// The skeleton walkers' entry points: a new instance, its kind from the
+// skeleton and animation arguments.
 extern "C" void snp_interp_instance(uint32_t skeleton, uint32_t animation) {
     current_instance++;
     uint64_t h = ((uint64_t)skeleton << 32 | animation) * 0x9E3779B97F4A7C15ull;
@@ -205,11 +186,8 @@ extern "C" void snp_interp_matrix(uint32_t mtx, uint32_t mesh, uint32_t x, uint3
 }
 
 // guMtxF2L, as it builds any matrix: the float matrix, the matrix and its
-// caller (where it was called from: the kind of object). One not recorded as
-// a skeleton's above is an object of its own (the cones in the city stage,
-// all alike, were paired with one another by RT64's guesses and flickered),
-// numbered like skeletons with the others built at the same place, placed by
-// the float matrix's translation and turned by its axes.
+// caller. A matrix not just recorded as a skeleton's is an object of its own,
+// its kind the caller.
 extern "C" void snp_interp_object_matrix(uint8_t* rdram, uint32_t fmtx, uint32_t mtx, uint32_t ra) {
     mtx &= 0x1FFFFFFF;
     if (mtx == recorded_matrix) {
@@ -242,9 +220,8 @@ extern "C" void snp_interp_object_matrix(uint8_t* rdram, uint32_t fmtx, uint32_t
 
 namespace snp {
     // Once per graphics task, before its display list is walked. A frame's
-    // matrices are built two tasks before its display list goes out (measured),
-    // and the matrix pools are reused, so an entry counts only if it's at most
-    // two tasks old; older ones are some other matrix's now.
+    // matrices are built up to two tasks earlier and the matrix pools are
+    // reused, so older entries belong to some other matrix now.
     void interp_new_frame() {
         generation++;
         if (matrices.size() > 4096) {
@@ -269,7 +246,7 @@ namespace snp {
         if (it == matrices.end() || generation - it->second.generation > 2) {
             return 0xFFFFFFFF;
         }
-        // SNP_INTERP_INSTANCES=0 leaves instances out (for comparing).
+        // SNP_INTERP_INSTANCES=0 turns instance numbering off, for comparing.
         static const bool instances_off = [] { const char* v = std::getenv("SNP_INTERP_INSTANCES"); return v && v[0] == '0'; }();
         auto inst = instances.find(it->second.instance);
         object = (it->second.instance & object_serials) != 0;
