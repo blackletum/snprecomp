@@ -371,7 +371,7 @@ if (WIN32)
     if (EXISTS ${CMAKE_SOURCE_DIR}/icons/app.res)
         target_link_libraries(SnPRecompiled PRIVATE ${CMAKE_SOURCE_DIR}/icons/app.res)
     endif()
-    target_link_libraries(SnPRecompiled PRIVATE SDL2 Winmm.lib)
+    target_link_libraries(SnPRecompiled PRIVATE SDL2 Winmm.lib Urlmon.lib)
 endif()
 
 if (APPLE)

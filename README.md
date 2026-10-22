@@ -31,6 +31,8 @@ included.** You need your own dump of the game to build or play this.
 - Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
   Scene Select, infinite health, time and continues
 - The Japanese ROM and translation patches of it
+- Add to Steam in the launcher: adds the game to your Steam library as a
+  non-Steam game, with artwork from SteamGridDB
 
 ## Game Files
 
