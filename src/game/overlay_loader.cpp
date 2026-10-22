@@ -24,6 +24,16 @@ namespace {
     constexpr uint32_t load_table_max_entries = 64;
 
     bool startup_cleanup_done = false;
+
+    // The front-end menus' overlay (title menu, OPT. menu, ...), loaded at the
+    // overlay area like each stage's.
+    constexpr int32_t overlay_area_start = (int32_t)0x800E4780u;
+    constexpr uint32_t front_end_overlay_rom = 0x683640;
+    uint32_t overlay_area_rom = 0;
+}
+
+bool snp_in_front_end_menus() {
+    return overlay_area_rom == front_end_overlay_rom;
 }
 
 // args: the loader's request, {rom start, rom end, ram, ...}.
@@ -70,6 +80,9 @@ extern "C" void snp_segment_loaded(uint8_t* rdram, int32_t args) {
         return;
     }
 
+    if (ram == overlay_area_start) {
+        overlay_area_rom = rom;
+    }
     unload_overlays(ram, span);
     load_overlays(rom, ram, rom_end - rom);
 }

@@ -45,6 +45,9 @@ namespace {
     int window_h = 720;
 
     std::atomic<uint32_t> mouse_buttons = 0;
+    // Pressed since the game last read the controller, so a click shorter
+    // than a frame still counts.
+    std::atomic<uint32_t> mouse_clicked = 0;
 
     int SDLCALL watch_events(void*, SDL_Event* event) {
         switch (event->type) {
@@ -70,6 +73,7 @@ namespace {
             }
             case SDL_MOUSEBUTTONDOWN:
                 mouse_buttons.fetch_or(SDL_BUTTON(event->button.button));
+                mouse_clicked.fetch_or(SDL_BUTTON(event->button.button));
                 break;
             case SDL_MOUSEBUTTONUP:
                 mouse_buttons.fetch_and(~SDL_BUTTON(event->button.button));
@@ -107,7 +111,7 @@ void snp::mouse::init() {
 bool snp::mouse::get_input(int player, uint16_t* buttons, float* x, float* y) {
     bool connected = recompinput::profiles::get_n64_input(player, buttons, x, y);
     if (player == 0 && snp::config::get_mouse_aim() != snp::config::MouseAim::Off && !recompinput::game_input_disabled()) {
-        uint32_t held = mouse_buttons.load();
+        uint32_t held = mouse_buttons.load() | mouse_clicked.exchange(0);
         if (held & SDL_BUTTON_LMASK) *buttons |= BTN_Z;
         if (held & SDL_BUTTON_RMASK) *buttons |= BTN_R;
         if (held & SDL_BUTTON_MMASK) *buttons |= BTN_A;

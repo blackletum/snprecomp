@@ -29,6 +29,8 @@ namespace snp {
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
 }
 
+bool snp_in_front_end_menus(); // src/game/overlay_loader.cpp
+
 namespace {
     // G_SETSCISSOR / G_FILLRECT words: coordinates are 10.2 fixed point.
     constexpr uint32_t xy(uint32_t x, uint32_t y) {
@@ -323,6 +325,9 @@ namespace {
     constexpr int32_t right_origin_shift = -320 * 4; // RT64 adds the width to right-anchored coordinates
     constexpr uint32_t origin_left = 0x0, origin_right = 0x400, origin_none = 0x800;
     bool in_hud = false;
+    // The front-end menus draw with the same projection, and the OPT. menu's
+    // top row is in the band: no anchoring there.
+    bool front_end = false;
     uint32_t hud_bank = 0;
     uint32_t hud_entry = 0;
 
@@ -667,13 +672,13 @@ namespace {
                     break;
                 case 0xE4: // G_TEXRECT: two more words follow (RDPHALF_1, RDPHALF_2)
                     nudge_rect_start(rdram, addr);
-                    if (widen && in_hud) {
+                    if (widen && in_hud && !front_end) {
                         add_hud_rect(rdram, addr, w0, w1, 3);
                     }
                     addr += 16;
                     break;
                 case 0xF6: // G_FILLRECT
-                    if (widen && in_hud) {
+                    if (widen && in_hud && !front_end) {
                         add_hud_rect(rdram, addr, w0, w1, 1);
                     }
                     break;
@@ -726,6 +731,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     starts_with_picture = false;
     effect_area_scissor = false;
     in_hud = false;
+    front_end = snp_in_front_end_menus();
     hud_bank = (hud_bank + 1) % hud_banks;
     hud_entry = 0;
     fill_run_count = 0;
