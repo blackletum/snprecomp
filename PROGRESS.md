@@ -47,8 +47,11 @@ and leave the game's own behaviour, look and balance alone.
   fire wave and energy fountains.
 - The in-game pause: a looping effect sound in stage 2, taken as the game's
   own (closed).
-- On hold: for modders, texture packs from the mods folder, a texture dump
-  switch, the list of text textures that differ between the ROMs, and the
+- Texture packs: RT64 packs from the Mods menu; Rice Video packs from
+  `texture_packs`, matched at runtime by Rice's own texture keys
+  (lib-patches/rt64/0020; Rice read a 4-bit texture's palette at twice its
+  offset, and packs are named by that). Tested with Vanit's English pack.
+- On hold: for modders, a texture dump switch, the list of text textures that differ between the ROMs, and the
   symbol file with names as functions are identified.
 
 ## Where things are

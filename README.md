@@ -20,6 +20,8 @@ included.** You need your own dump of the game to build or play this.
 - Framerates above 30 fps (Refresh Rate: Display or Manual) (experimental)
 - Higher resolutions and anti-aliasing
 - Screen filters (CRT, Scanlines, LCD) and bloom
+- Texture packs: RT64 packs (`.rtz`) and Rice Video hi-res packs made for
+  emulators
 - Twin-stick controller layout by default, fully remappable, and keyboard
 - Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
   Scene Select, infinite health, time and continues
@@ -44,6 +46,19 @@ patch to the Japanese ROM yourself, as for an emulator.
 
 Add a blank portable.txt in the application's folder to make portable if you
 want to save settings locally.
+
+## Texture Packs
+
+- RT64 packs (`.rtz`): install them from the Mods menu, like any mod.
+- Rice Video packs (an emulator's `hires_texture` pack, files named like
+  `TSUMI TO BATSU#1A2B3C4D#2#1#5E6F7A8B_ciByRGBA.png`): put the pack's folder
+  in the `texture_packs` folder (`%LOCALAPPDATA%\snprecomp\texture_packs` on
+  Windows, `~/.config/snprecomp/texture_packs` on Linux, or next to the game
+  with `portable.txt`), then start the game. Tested with Vanit's English
+  translation pack on the Japanese ROM.
+
+If an RT64 pack and a Rice pack both replace a texture, the RT64 pack's is
+used.
 
 ## Steam Deck and Linux
 
