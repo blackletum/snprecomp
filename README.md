@@ -11,8 +11,16 @@ made by statically recompiling the N64 game with
 Unofficial, and not affiliated with the rights holders. **No game data is
 included.** You need your own dump of the game to build or play this.
 
-**Status: early work in progress.** Both ROMs boot, and the menus and the
-first stage play; the rest isn't tested yet. See [PROGRESS.md](PROGRESS.md).
+**Alpha.** Tested on Windows. The Linux and Steam Deck builds are untested.
+
+## Features
+
+- Widescreen (Expand aspect ratio), with the HUD anchored to the screen edges
+  and the reticle reaching the full width
+- Higher framerates (Refresh Rate: Display or Manual)
+- Higher resolutions and anti-aliasing
+- Twin-stick controller layout by default, fully remappable, and keyboard
+- Both the Japanese ROM and the English fan translation
 
 ## Game Files
 
@@ -49,13 +57,15 @@ On a Steam Deck:
 Settings and saves are in `~/.config/snprecomp` (or next to the game with
 `portable.txt`). The Windows build also runs under Proton.
 
-## Planned
+## Issues and Limitations
 
-- Higher framerates (interpolated) and widescreen, with the HUD anchored to
-  the screen edges and the aiming crosshair matched to the wider view.
-- For texture pack and mod makers: texture packs loaded from the mods folder,
-  a texture dump switch, a list of the text textures that differ between the
-  two ROMs, and the function names found while porting, shared by both ROMs.
+Known:
+- A few scenes show sky or nothing at the sides in widescreen, where the game
+  has no scenery past the original 4:3 view.
+- The second-long zoom into the title screen stays 4:3.
+
+Else:
+- Please see the "Issues" section in GitHub.
 
 ## Building
 

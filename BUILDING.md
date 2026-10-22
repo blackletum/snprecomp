@@ -91,6 +91,31 @@ Run it from the repo root: the game loads `assets/` relative to the working
 directory. `--game snp` skips the launcher (`--game snp.n64.jp.1.0` or
 `--game snp.n64.en.fan` to pick the ROM when both are set up).
 
+## Package a release
+
+**Windows:**
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\tools\package-windows.ps1 -Version 0.1.0
+```
+
+Runs from any PowerShell (it sets up Visual Studio's x64 environment
+itself), builds Release in `build-release\` so your normal `build\` is left
+alone, and writes `dist\SnPRecompiled-<version>-windows.zip` with the exe,
+its DLLs, `assets\`, README and licenses. The steps above must be done first.
+
+**Linux** (experimental):
+
+```bash
+tools/package-linux.sh 0.1.0
+```
+
+Builds Release in `build-release-linux/` and writes
+`dist/SnPRecompiled-<version>-linux-x86_64.tar.gz`: the binary, a
+`SnPRecompiled.sh` launcher that runs it from its own folder, the assets,
+README and licenses. SDL2, GTK 3, FreeType and Vulkan come from the system.
+
 ## Regenerating the symbol file
 
 `SnPSyms/snp.jp.syms.toml` is generated; don't edit it by hand. To rebuild it
