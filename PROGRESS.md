@@ -36,16 +36,20 @@ and leave the game's own behaviour, look and balance alone.
   options, saving.
 - Confirm the EEPROM size (4K assumed).
 - Rumble, controller defaults for the game's controls.
-- Widescreen: the crosshair's screen-to-world mapping,
-  the second-long zoom into the title (drawn by
-  the CPU, stays 4:3). (Done: the picture widens, STATUS.md round 5; fades,
-  tints and the title screen, round 7; culling at the edges, round 8; HUD anchoring, round 9.)
-- Higher framerates: the characters' jitter is fixed (round 8, confirmed);
-  check the frame timing in busy scenes.
-- The in-game pause: a looping effect or engine sound keeps playing in stage 2.
-- For modders: texture packs from the mods folder, a texture dump switch,
-  the list of text textures that differ between the ROMs, and the symbol
-  file with names as functions are identified.
+- Widescreen: the second-long zoom into the title (drawn by the CPU, stays
+  4:3); a few scenes show sky or nothing past the 4:3 view's edges (the
+  entry scene's corners, the elevator's top corner: no geometry there).
+  (Done: the picture widens, STATUS.md round 5; fades, tints and the title
+  screen, round 7; culling at the edges, round 8; HUD anchoring, round 9 and
+  after; the reticle reaching the sides.)
+- Higher framerates: characters, swarms and alike objects are paired by
+  stable IDs (confirmed: soldiers, insects, cones); still to see: a boss's
+  fire wave and energy fountains.
+- The in-game pause: a looping effect sound in stage 2, taken as the game's
+  own (closed).
+- On hold: for modders, texture packs from the mods folder, a texture dump
+  switch, the list of text textures that differ between the ROMs, and the
+  symbol file with names as functions are identified.
 
 ## Where things are
 
