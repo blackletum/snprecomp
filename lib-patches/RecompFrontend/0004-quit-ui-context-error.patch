@@ -1,0 +1,32 @@
+diff --git a/recompui/src/core/ui_context.cpp b/recompui/src/core/ui_context.cpp
+index e99229a..1206ab5 100644
+--- a/recompui/src/core/ui_context.cpp
++++ b/recompui/src/core/ui_context.cpp
+@@ -1,3 +1,6 @@
++#include <atomic>
++#include <cstdio>
++#include <cstdlib>
+ #include <mutex>
+ #include <string>
+ #include <unordered_map>
+@@ -90,9 +93,20 @@ enum class SlotTag : uint8_t {
+     Element = 1,
+ };
+ 
++// Set by ultramodern::quit() (librecomp).
++extern std::atomic_bool exited;
++
+ void context_error(recompui::ContextId id, ContextErrorType type) {
+     (void)id;
+ 
++    // Quitting tears the UI down from another thread, which can catch a menu
++    // mid-update: finish exiting (as main() does) instead of reporting it.
++    if (exited.load()) {
++        fflush(stdout);
++        fflush(stderr);
++        std::_Exit(EXIT_SUCCESS);
++    }
++
+     const char* error_message = "";
+ 
+     switch (type) {
