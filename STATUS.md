@@ -643,3 +643,9 @@ than half the gap to the next, so a panel was paired with the one behind it
 and flickered back on in-between frames. Each numbered instance now carries
 its last movement, and pairs are taken closest to where that movement would
 take it (still within 256 units of where it was).
+
+Objects are also matched by how they're turned (RT64's measure, 1 - dot per
+axis, weighted 64 units each): a boss's energy fountains are alike spray
+layers in one place turned differently, and by place alone a layer could be
+paired with another and swirl on in-between frames. guMtxF2L's hook reads the
+float matrix's translation and axes itself.

@@ -152,7 +152,7 @@ text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instan
 [[patches.hook]]
 func = "guMtxF2L"
 before_vram = 0x80048940
-text = "{ extern void snp_interp_object_matrix(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t); snp_interp_object_matrix((uint32_t)ctx->r5, (uint32_t)ctx->r31, MEM_W(0x30, ctx->r4), MEM_W(0x34, ctx->r4), MEM_W(0x38, ctx->r4)); } // snp: interpolation"
+text = "{ extern void snp_interp_object_matrix(uint8_t*, uint32_t, uint32_t, uint32_t); snp_interp_object_matrix(rdram, (uint32_t)ctx->r4, (uint32_t)ctx->r5, (uint32_t)ctx->r31); } // snp: interpolation"
 
 # --- Reticle reach in Expand -----------------------------------------------
 # func_800AB924 moves the reticle and keeps its offset from the screen centre

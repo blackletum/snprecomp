@@ -28,6 +28,7 @@ namespace {
     struct Instance {
         uint32_t key = 0;
         float pos[3] = {};
+        float axes[3][3] = {}; // an object's normalized axes (zero for a skeleton)
         uint32_t number = 0;
         uint32_t built = 0; // generation
     };
@@ -62,6 +63,7 @@ namespace {
     // had any.
     struct Placed {
         float pos[3];
+        float axes[3][3];
         float vel[3]; // since the time before, if it was numbered then too
         uint32_t number;
     };
@@ -70,6 +72,22 @@ namespace {
     float distance2(const float* a, const float* b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return dx * dx + dy * dy + dz * dz;
+    }
+
+    // How differently two objects are turned, 0 (alike) to 6, as RT64 measures
+    // it; 0 if either has no axes (a skeleton).
+    float orientation_difference(const float (&a)[3][3], const float (&b)[3][3]) {
+        float d = 0.0f;
+        for (int i = 0; i < 3; i++) {
+            float dot = a[i][0] * b[i][0] + a[i][1] * b[i][1] + a[i][2] * b[i][2];
+            float la = a[i][0] * a[i][0] + a[i][1] * a[i][1] + a[i][2] * a[i][2];
+            float lb = b[i][0] * b[i][0] + b[i][1] * b[i][1] + b[i][2] * b[i][2];
+            if (la == 0.0f || lb == 0.0f) {
+                return 0.0f;
+            }
+            d += 1.0f - dot;
+        }
+        return d;
     }
 
     // Number one kind's instances in a display list: pairs of one now and one
@@ -96,9 +114,13 @@ namespace {
                 if (distance2(now[i]->pos, placed[j].pos) > max_distance * max_distance) {
                     continue;
                 }
+                // And by how it's turned: a boss's energy fountains are alike
+                // spray layers in one place, turned differently, and by place
+                // alone a layer could be paired with another and swirl.
                 const Placed& p = placed[j];
                 const float expected[3] = { p.pos[0] + p.vel[0], p.pos[1] + p.vel[1], p.pos[2] + p.vel[2] };
-                pairs.push_back({ distance2(now[i]->pos, expected), i, j });
+                const float turn = 64.0f * orientation_difference(now[i]->axes, p.axes);
+                pairs.push_back({ distance2(now[i]->pos, expected) + turn * turn, i, j });
             }
         }
         std::sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
@@ -107,6 +129,7 @@ namespace {
         std::vector<Placed> next(now.size());
         for (uint32_t i = 0; i < now.size(); i++) {
             memcpy(next[i].pos, now[i]->pos, sizeof(next[i].pos));
+            memcpy(next[i].axes, now[i]->axes, sizeof(next[i].axes));
             memset(next[i].vel, 0, sizeof(next[i].vel));
         }
         for (const Pair& pair : pairs) {
@@ -181,24 +204,39 @@ extern "C" void snp_interp_matrix(uint32_t mtx, uint32_t mesh, uint32_t x, uint3
     recorded_matrix = mtx & 0x1FFFFFFF;
 }
 
-// guMtxF2L, as it builds any matrix: the matrix, its caller (where it was
-// called from: the kind of object) and the float matrix's translation. One
-// not recorded as a skeleton's above is an object of its own (the cones in the
-// city stage, all alike, were paired with one another by RT64's guesses and
-// flickered), numbered like skeletons with the others built at the same place.
-extern "C" void snp_interp_object_matrix(uint32_t mtx, uint32_t ra, uint32_t x, uint32_t y, uint32_t z) {
+// guMtxF2L, as it builds any matrix: the float matrix, the matrix and its
+// caller (where it was called from: the kind of object). One not recorded as
+// a skeleton's above is an object of its own (the cones in the city stage,
+// all alike, were paired with one another by RT64's guesses and flickered),
+// numbered like skeletons with the others built at the same place, placed by
+// the float matrix's translation and turned by its axes.
+extern "C" void snp_interp_object_matrix(uint8_t* rdram, uint32_t fmtx, uint32_t mtx, uint32_t ra) {
     mtx &= 0x1FFFFFFF;
     if (mtx == recorded_matrix) {
         recorded_matrix = 0;
         return;
     }
+    auto word = [&](uint32_t offset) { return *(uint32_t*)(rdram + ((fmtx + offset) & 0x1FFFFFFF)); };
     uint32_t serial = object_serials | (++object_serial & 0x7FFFFFFF);
     uint32_t kind = (uint32_t)((ra * 0x9E3779B97F4A7C15ull) >> 32) | 0x80000001u;
     Instance& inst = instances[serial];
     inst = Instance();
     inst.key = kind;
     inst.built = generation;
-    set_pos(inst, x, y, z);
+    set_pos(inst, word(0x30), word(0x34), word(0x38));
+    for (int i = 0; i < 3; i++) {
+        float len2 = 0.0f;
+        for (int j = 0; j < 3; j++) {
+            uint32_t w = word(i * 0x10 + j * 4);
+            memcpy(&inst.axes[i][j], &w, 4);
+            if (!std::isfinite(inst.axes[i][j])) inst.axes[i][j] = 0.0f;
+            len2 += inst.axes[i][j] * inst.axes[i][j];
+        }
+        float scale = len2 > 0.0f ? 1.0f / std::sqrt(len2) : 0.0f;
+        for (int j = 0; j < 3; j++) {
+            inst.axes[i][j] *= scale;
+        }
+    }
     matrices[mtx] = { kind >> 1, generation, serial };
 }
 
