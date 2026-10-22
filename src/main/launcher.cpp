@@ -1,9 +1,9 @@
 // The launcher menu. The frontend's default one only offers the first
 // registered game, and checks a loaded ROM against that game alone, so the
 // English translation's ROM was refused as "not the correct game". This one
-// takes either kind of ROM, Japanese or translated, through one Load ROM option
-// and has a start option for each that's loaded (src/main/main.cpp's
-// supported_games).
+// takes either kind of ROM, Japanese or translated, through one Load ROM (or
+// Change ROM) option and has a start option for each that's loaded
+// (src/main/main.cpp's supported_games).
 #include <string>
 #include <vector>
 
@@ -109,19 +109,24 @@ namespace {
                 : options->add_option(title, nullptr);
             option->set_callback([&game]() { start_game(game); });
         }
-        // Once both ROMs are loaded there's nothing else to load (and the menu would
-        // run into the title).
+        // A ROM loaded later takes the place of the one before it of its kind.
         if (loaded.empty()) {
             options->add_start_game_or_load_rom_option("Load ROM", "Load ROM")->set_callback(load_rom);
         }
-        else if (loaded.size() < std::size(rom_choices)) {
-            options->add_option("Load Another ROM", load_rom);
+        else {
+            options->add_option("Change ROM", load_rom);
         }
 
         options->add_setup_controls_option();
         options->add_settings_option();
         options->add_mods_option();
         options->add_exit_option();
+
+        // With a start option for each ROM, the list reaches the title unless it
+        // sits lower.
+        if (loaded.size() > 1) {
+            options->set_bottom(10.0f, recompui::Unit::Percent);
+        }
     }
 }
 

@@ -44,6 +44,10 @@ The voices are the game's original English voice acting in all of them; the
 English translation replaces the Japanese on-screen text and menus. Apply its
 patch to the Japanese ROM yourself, as for an emulator.
 
+The launcher keeps one Japanese and one translated ROM, each with its own
+saves, and has a Start Game option for each. Change ROM swaps in another one
+(a Japanese ROM replaces the Japanese one, a translated ROM the translated one).
+
 Add a blank portable.txt in the application's folder to make portable if you
 want to save settings locally.
 
