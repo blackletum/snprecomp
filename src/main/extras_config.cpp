@@ -69,6 +69,14 @@ void snp::config::add_extras_tabs() {
         "Your save isn't changed: turning this off shows your own progress again.",
         false
     );
+    enhancements.add_bool_option(
+        "analog_aim",
+        "Analog Aim",
+        "Moves the reticle as far as the stick is pushed. The game takes the stick in steps, "
+        "five speeds each way with a wide dead zone; with this on it takes every position, "
+        "for finer aiming.",
+        false
+    );
 
     recomp::config::Config& cheats = recompui::config::create_config_tab("Cheats", cheats_id, false);
     cheats.add_bool_option("infinite_health", "Infinite Health", "", false);
@@ -79,6 +87,7 @@ void snp::config::add_extras_tabs() {
 bool snp::config::get_option(Option option) {
     switch (option) {
         case Option::UnlockOptions: return get_bool(enhancements_id, "unlock_options");
+        case Option::AnalogAim: return get_bool(enhancements_id, "analog_aim");
         case Option::InfiniteHealth: return get_bool(cheats_id, "infinite_health");
         case Option::InfiniteTime: return get_bool(cheats_id, "infinite_time");
         case Option::InfiniteContinues: return get_bool(cheats_id, "infinite_continues");

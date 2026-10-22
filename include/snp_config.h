@@ -11,6 +11,15 @@ namespace snp::config {
 
     bool get_rumble_pak();
 
+    // Mouse aiming (General tab; src/main/mouse.cpp).
+    enum class MouseAim : uint32_t {
+        Off = 0,
+        Relative = 1, // the mouse moves the reticle, the cursor held in the window
+        Absolute = 2, // the reticle sits where the pointer is
+    };
+    MouseAim get_mouse_aim();
+    float get_mouse_sensitivity(); // percent, for Relative
+
     // Screen Filter and Bloom at the end of the Graphics tab (RT64's
     // ScreenFilter and Bloom values; src/main/extras_config.cpp).
     void add_graphics_options(recomp::config::Config& graphics);
@@ -23,6 +32,7 @@ namespace snp::config {
 
     enum class Option {
         UnlockOptions,
+        AnalogAim,
         InfiniteHealth,
         InfiniteTime,
         InfiniteContinues,

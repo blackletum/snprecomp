@@ -57,6 +57,7 @@
 #include "librecomp/helpers.hpp"
 
 #include "snp_config.h"
+#include "snp_mouse.h"
 
 #if defined(SNP_HAS_APP_ICON)
 #include "icon_bytes.h"
@@ -121,6 +122,7 @@ static ultramodern::gfx_callbacks_t::gfx_data_t create_gfx() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC) != 0) {
         exit_error("Failed to initialize SDL2: %s", SDL_GetError());
     }
+    snp::mouse::init();
 
     return {};
 }
@@ -528,7 +530,7 @@ int main(int argc, char** argv) {
 
     ultramodern::input::callbacks_t input_callbacks{
         .poll_input = recompinput::poll_inputs,
-        .get_input = recompinput::profiles::get_n64_input,
+        .get_input = snp::mouse::get_input,
         .set_rumble = recompinput::set_rumble,
         .get_connected_device_info = get_connected_device_info,
     };

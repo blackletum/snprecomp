@@ -1,0 +1,54 @@
+diff --git a/recompinput/include/recompinput/input_events.h b/recompinput/include/recompinput/input_events.h
+index 5f4420f..d456f31 100644
+--- a/recompinput/include/recompinput/input_events.h
++++ b/recompinput/include/recompinput/input_events.h
+@@ -5,4 +5,13 @@
+ namespace recompinput {
+     void handle_events();
+     void purge_deferred_controller_profiles();
++
++    // How the mouse behaves while the game runs with no menu open, if the game
++    // decides rather than the mouse sensitivity option.
++    enum class GameMouse {
++        Default,  // as the mouse sensitivity option says
++        Captured, // hidden and held in the window (relative motion only)
++        Hidden,   // hidden over the window, free to move
++    };
++    void set_game_mouse_callback(GameMouse (*callback)());
+ }
+diff --git a/recompinput/src/input_events.cpp b/recompinput/src/input_events.cpp
+index c76a1dc..92087e0 100644
+--- a/recompinput/src/input_events.cpp
++++ b/recompinput/src/input_events.cpp
+@@ -246,6 +246,12 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
+     return false;
+ }
+ 
++static recompinput::GameMouse (*game_mouse_callback)() = nullptr;
++
++void set_game_mouse_callback(recompinput::GameMouse (*callback)()) {
++    game_mouse_callback = callback;
++}
++
+ void handle_events() {
+     SDL_Event cur_event;
+     static bool started = false;
+@@ -260,6 +266,18 @@ void handle_events() {
+ 
+         // Hide the cursor based on its enable state, but override visibility to false if the cursor is locked.
+         bool cursor_visible = recompui::get_cursor_visible();
++        if (game_mouse_callback != nullptr && !recompinput::game_input_disabled() && ultramodern::is_game_started()) {
++            switch (game_mouse_callback()) {
++                case recompinput::GameMouse::Captured:
++                    cursor_locked = true;
++                    break;
++                case recompinput::GameMouse::Hidden:
++                    cursor_visible = false;
++                    break;
++                default:
++                    break;
++            }
++        }
+         if (cursor_locked) {
+             cursor_visible = false;
+         }

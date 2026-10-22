@@ -23,6 +23,11 @@ included.** You need your own dump of the game to build or play this.
 - Texture packs: RT64 packs (`.rtz`) and Rice Video hi-res packs made for
   emulators
 - Twin-stick controller layout by default, fully remappable, and keyboard
+- Mouse aiming (General tab): Absolute, the reticle where the pointer is, or
+  Relative, with a sensitivity; left click fires, right click jumps, middle
+  click switches the aim mode
+- Analog Aim (Enhancements): the stick moves the reticle as far as it's
+  pushed, instead of the game's five speeds each way
 - Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
   Scene Select, infinite health, time and continues
 - The Japanese ROM and translation patches of it
@@ -106,6 +111,9 @@ See [BUILDING.md](BUILDING.md).
 - [RecompFrontend](https://github.com/N64Recomp/RecompFrontend) by the N64Recomp
   contributors, the launcher and input layer
 - Zoinkity, for the English translation of the game's text
+- [Mouse Injector](https://github.com/garungorp/MouseInjectorDolphinDuck) by
+  Carnivorous, whose Sin and Punishment driver pointed to the reticle's
+  position in memory
 - [spimdisasm and rabbitizer](https://github.com/Decompollaborate) for finding
   function boundaries, and [n64sym](https://github.com/shygoo/n64sym) by shygoo
   for identifying the N64 SDK's functions
