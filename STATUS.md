@@ -634,3 +634,12 @@ first, per display list). Objects keep RT64's automatic component settings and
 decomposition; only their pairing is by ID (G_EX_ORDER_LINEAR). An object's ID
 is used only with its number (with SNP_INTERP_INSTANCES=0 they're automatic as
 before). Numbering costs about 0.1 ms a frame (stage 2, up to 121 instances).
+
+### Fast rows of alike objects (a boss's fire wave)
+
+Numbering paired instances by where they were: the fire wave after a boss is
+a row of alike panels rushing at the camera, each moving further in a frame
+than half the gap to the next, so a panel was paired with the one behind it
+and flickered back on in-between frames. Each numbered instance now carries
+its last movement, and pairs are taken closest to where that movement would
+take it (still within 256 units of where it was).

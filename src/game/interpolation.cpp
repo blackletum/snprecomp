@@ -62,6 +62,7 @@ namespace {
     // had any.
     struct Placed {
         float pos[3];
+        float vel[3]; // since the time before, if it was numbered then too
         uint32_t number;
     };
     std::unordered_map<uint32_t, std::vector<Placed>> kinds;
@@ -84,18 +85,30 @@ namespace {
         };
         // Nothing moves this far in a frame (RT64 doesn't pair matrices this far apart either).
         const float max_distance = 256.0f;
+        // Each one last time is expected where its speed then takes it: the
+        // boss's fire wave is a row of alike panels rushing at the camera,
+        // each moving further in a frame than half the gap to the next, and by
+        // where they were, a panel was paired with the one behind it and
+        // flickered back on the in-between frames.
         std::vector<Pair> pairs;
         for (uint32_t i = 0; i < now.size(); i++) {
             for (uint32_t j = 0; j < placed.size(); j++) {
-                float d = distance2(now[i]->pos, placed[j].pos);
-                if (d <= max_distance * max_distance) {
-                    pairs.push_back({ d, i, j });
+                if (distance2(now[i]->pos, placed[j].pos) > max_distance * max_distance) {
+                    continue;
                 }
+                const Placed& p = placed[j];
+                const float expected[3] = { p.pos[0] + p.vel[0], p.pos[1] + p.vel[1], p.pos[2] + p.vel[2] };
+                pairs.push_back({ distance2(now[i]->pos, expected), i, j });
             }
         }
         std::sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
         std::vector<bool> numbered(now.size(), false);
         std::vector<bool> before_used(placed.size(), false);
+        std::vector<Placed> next(now.size());
+        for (uint32_t i = 0; i < now.size(); i++) {
+            memcpy(next[i].pos, now[i]->pos, sizeof(next[i].pos));
+            memset(next[i].vel, 0, sizeof(next[i].vel));
+        }
         for (const Pair& pair : pairs) {
             if (numbered[pair.now] || before_used[pair.before]) {
                 continue;
@@ -103,6 +116,9 @@ namespace {
             numbered[pair.now] = true;
             before_used[pair.before] = true;
             now[pair.now]->number = placed[pair.before].number;
+            for (int k = 0; k < 3; k++) {
+                next[pair.now].vel[k] = now[pair.now]->pos[k] - placed[pair.before].pos[k];
+            }
         }
         auto used = [&](uint32_t n) {
             for (const Placed& p : placed) {
@@ -120,14 +136,9 @@ namespace {
                 now[i]->number = n;
                 numbered[i] = true;
             }
+            next[i].number = now[i]->number;
         }
-        placed.clear();
-        for (const Instance* inst : now) {
-            Placed p;
-            memcpy(p.pos, inst->pos, sizeof(p.pos));
-            p.number = inst->number;
-            placed.push_back(p);
-        }
+        placed.swap(next);
     }
 }
 
