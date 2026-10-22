@@ -16,8 +16,8 @@ included.** You need your own dump of the game to build or play this.
 ## Features
 
 - Widescreen (Expand aspect ratio), with the HUD anchored to the screen edges
-  and the reticle reaching the full width
-- Higher framerates (Refresh Rate: Display or Manual)
+  and the reticle reaching the full width (experimental)
+- Framerates above 30 fps (Refresh Rate: Display or Manual) (experimental)
 - Higher resolutions and anti-aliasing
 - Twin-stick controller layout by default, fully remappable, and keyboard
 - Both the Japanese ROM and the English fan translation
@@ -28,8 +28,8 @@ Either of these ROMs works. Pick the one you want to play:
 
 | ROM | SHA-1 |
 |---|---|
-| Tsumi to Batsu - Hoshi no Keishousha (Japan) | `581297b9d5c3a4c33169ae0aae218c742cd9cbcf` |
-| Sin and Punishment, fan English translation | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
+| Tsumi to Batsu - Hoshi no Keishousha (Japan), original | `581297b9d5c3a4c33169ae0aae218c742cd9cbcf` |
+| Sin and Punishment - Successor of the Earth (U), English fan translation patched onto the Japanese ROM | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
 
 The voices are the game's original English voice acting in both. The fan
 translation replaces the Japanese on-screen text and menus with English;
@@ -60,6 +60,9 @@ Settings and saves are in `~/.config/snprecomp` (or next to the game with
 ## Issues and Limitations
 
 Known:
+- Widescreen and framerates above 30 fps are experimental: if something
+  looks wrong, check it at Original aspect ratio and Original refresh rate,
+  and please report it with a screenshot or clip.
 - A few scenes show sky or nothing at the sides in widescreen, where the game
   has no scenery past the original 4:3 view.
 - The second-long zoom into the title screen stays 4:3.

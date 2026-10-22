@@ -24,7 +24,7 @@ if [ ! -d RecompiledFuncs ]; then
     exit 1
 fi
 
-cmake -S . -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="${CC:-clang}" -DCMAKE_CXX_COMPILER="${CXX:-clang++}"
 cmake --build "$build_dir" --target SnPRecompiled
 
 name="SnPRecompiled-$version-linux-x86_64"
