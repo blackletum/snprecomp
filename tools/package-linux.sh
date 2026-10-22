@@ -41,7 +41,7 @@ cd "$(dirname "$(readlink -f "$0")")" && exec ./SnPRecompiled "$@"
 EOF
 chmod 755 "$stage/SnPRecompiled.sh"
 cp -r assets "$stage/"
-cp README.md COPYING "$stage/"
+cp README.md CHANGELOG.md COPYING "$stage/"
 
 # License notices for the third-party code built into the binary.
 licenses=(

@@ -11,103 +11,95 @@ made by statically recompiling the N64 game with
 Unofficial, and not affiliated with the rights holders. **No game data is
 included.** You need your own dump of the game to build or play this.
 
-**Alpha.** Tested on Windows. The Linux and Steam Deck builds are untested.
-
 ## Features
-
-- Widescreen (Expand aspect ratio), with the HUD anchored to the screen edges
-  and the reticle reaching the full width (experimental)
-- Framerates above 30 fps (Refresh Rate: Display or Manual) (experimental)
-- Higher resolutions and anti-aliasing
-- Screen filters (CRT, Scanlines, LCD) and bloom
-- Texture packs: RT64 packs (`.rtz`) and Rice Video hi-res packs made for
-  emulators
-- Twin-stick controller layout by default, fully remappable, and keyboard
-- Mouse aiming (Controls tab): Absolute, the reticle where the pointer is, or
-  Relative, with a sensitivity; left click fires, right click jumps, middle
-  click switches the aim mode
-- Analog Aim (Controls tab): the stick moves the reticle as far as it's
-  pushed, instead of the game's five speeds each way
-- Enhancements and Cheats tabs: unlock the OPT. menu and every stage in
-  Scene Select, infinite health, time and continues
-- The Japanese ROM and translation patches of it
-- Add to Steam in the launcher: adds the game to your Steam library as a
-  non-Steam game, with artwork from SteamGridDB
+- Runs natively on Windows. Linux and Steam Deck builds are untested.
+- Widescreen, with the HUD at the screen edges and the reticle reaching the
+  full width (experimental).
+- High resolutions and framerates above 30 fps (experimental).
+- Mouse aim, Absolute (the reticle follows the pointer) or Relative.
+- Analog Aim for smoother aiming with a stick.
+- Twin-stick controller layout by default, fully remappable, and keyboard.
+- Plays the Japanese ROM or an English translation of it.
+- Texture packs: RT64 packs and Rice packs made for emulators.
+- CRT, Scanlines and LCD screen filters, and bloom.
+- Unlocks and cheats in the settings, no codes needed.
+- Add to Steam from the launcher, with artwork.
 
 ## Game Files
-
-You need the Japanese release, Tsumi to Batsu - Hoshi no Keishousha, or a
-translation patch of it. Any dump in any byte order (`.z64`, `.n64`, `.v64`)
-works, and so does a patched ROM as long as the patch only changes text and
-graphics, like the English translations. Tested:
+You need your own data file: the Japanese release, or an English translation
+patched onto it. Known good:
 
 | ROM | SHA-1 |
 |---|---|
-| Tsumi to Batsu - Hoshi no Keishousha (Japan), original | `581297b9d5c3a4c33169ae0aae218c742cd9cbcf` |
-| Sin and Punishment - Successor of the Earth (U), English translation patched onto the Japanese ROM | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
-| Sin and Punishment - Successor of the Earth (English v1.0) [Zoinkity] | `e3906c919236dac6eba020b4b8c1df91fd725c5d` |
+| Tsumi to Batsu - Hoshi no Keishousha (Japan) | `581297b9d5c3a4c33169ae0aae218c742cd9cbcf` |
+| Sin and Punishment - Successor of the Earth (U), English translation | `5945ff3935d9d9531bbb5cfcabed7c198e2b2f41` |
+| Sin and Punishment - Successor of the Earth, English v1.0 [Zoinkity] | `e3906c919236dac6eba020b4b8c1df91fd725c5d` |
 
-The voices are the game's original English voice acting in all of them; the
-English translation replaces the Japanese on-screen text and menus. Apply its
-patch to the Japanese ROM yourself, as for an emulator.
+Other dumps work too: `.z64`, `.n64` and `.v64`, and other translation
+patches as long as they only change text and graphics.
 
-The launcher keeps one Japanese and one translated ROM, each with its own
-saves, and has a Start Game option for each. Change ROM swaps in another one
-(a Japanese ROM replaces the Japanese one, a translated ROM the translated one).
+Start the game, pick **Load ROM** and select your file. It only has to be
+done once. You can keep one Japanese and one English ROM, each with its own
+saves, and pick either one with **Start Game**. **Change ROM** swaps one out.
 
-Add a blank portable.txt in the application's folder to make portable if you
-want to save settings locally.
+Add a blank portable.txt in the application's folder to make it portable,
+if you want to save settings and saves locally.
+
+## Download
+Get the latest build from the [Releases](https://github.com/wootbeer/snprecomp/releases) page.
+- **Windows:** unzip it anywhere and run `SnPRecompiled.exe`.
+- **Linux / Steam Deck (untested):** extract the `.tar.gz` and run
+  `SnPRecompiled.sh`. Settings and saves go in `~/.config/snprecomp`.
+
+On Steam Deck, in Desktop Mode, use **Add to Steam** on the launcher (or "Add a
+Non-Steam Game" in Steam), then play it from Gaming Mode.
+
+## Controls
+F1 or Esc opens the settings. Change the controls on the Controls tab.
+
+| | Mouse and keyboard | Controller |
+|---|---|---|
+| Move | Arrow keys | Left stick |
+| Aim | Mouse, or W A S D | Right stick |
+| Fire | Left click / Q | Right trigger |
+| Jump | Right click / R | Left trigger |
+| Aim mode (lock-on / free) | Middle click / Space | A |
+| Start | Enter | Start |
+
+Mouse Aim, Mouse Sensitivity, Joystick Deadzone and Analog Aim are at the top
+of the Controls tab.
 
 ## Texture Packs
+- **RT64 packs** (`.rtz`): install them from the Mods tab.
+- **Rice packs** (emulator `hires_texture` packs): put the pack's folder in the
+  `texture_packs` folder. Graphics > Texture Packs > **Open Folder** opens it.
+  Texture Packs can be turned off there too, before the game starts.
 
-- RT64 packs (`.rtz`): install them from the Mods menu, like any mod.
-- Rice Video packs (an emulator's `hires_texture` pack, files named like
-  `TSUMI TO BATSU#1A2B3C4D#2#1#5E6F7A8B_ciByRGBA.png`): put the pack's folder
-  in the `texture_packs` folder (`%LOCALAPPDATA%\snprecomp\texture_packs` on
-  Windows, `~/.config/snprecomp/texture_packs` on Linux, or next to the game
-  with `portable.txt`; Graphics > Texture Packs > Open Folder opens it), then
-  start the game. Texture Packs on the Graphics tab turns them off. Tested with Vanit's English
-  translation pack on the Japanese ROM.
-
-If an RT64 pack and a Rice pack both replace a texture, the RT64 pack's is
-used.
-
-## Steam Deck and Linux
-
-There's a native Linux build (`tools/package-linux.sh` makes the package).
-It needs a 64-bit Linux with glibc 2.38 or newer, SDL2, GTK 3, FreeType and
-Vulkan, all of which SteamOS has. Not yet tested on a real Steam Deck.
-
-On a Steam Deck:
-1. In Desktop Mode, extract the `.tar.gz` somewhere in your home folder.
-2. In Steam, add `SnPRecompiled.sh` from that folder as a non-Steam game.
-3. Start it from Gaming Mode. Keep Steam Input's default gamepad layout:
-   the game's default controls are twin-stick, moving with the left stick
-   (the N64 C buttons), aiming with the right stick, firing with the right
-   trigger.
-
-Settings and saves are in `~/.config/snprecomp` (or next to the game with
-`portable.txt`). The Windows build also runs under Proton.
+Tested with Vanit's English translation pack on the Japanese ROM. If both
+kinds of pack replace the same texture, the RT64 one is used.
 
 ## Issues and Limitations
 
 Known:
-- Widescreen and framerates above 30 fps are experimental: if something
-  looks wrong, check it at Original aspect ratio and Original refresh rate,
-  and please report it with a screenshot or clip.
+- Beta.
+- Widescreen and framerates above 30 fps are experimental. If something looks
+  wrong, check it at Original aspect ratio and Original framerate.
 - A few scenes show sky or nothing at the sides in widescreen, where the game
   has no scenery past the original 4:3 view.
-- The second-long zoom into the title screen stays 4:3.
+- Linux and Steam Deck builds are untested.
 
 Else:
-- Please see the "Issues" section in GitHub.
+- Please see the "Issues" section in GitHub. Screenshots or a short video
+  help a lot.
+- If the game crashes, attach `crash_log.txt` from the game's folder.
+
+## Changes
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Building
-
 See [BUILDING.md](BUILDING.md).
 
 ## Credits
-
 - [N64Recomp and N64ModernRuntime](https://github.com/N64Recomp) by Mr-Wiseguy
   and contributors, which this port is built with
 - [RT64](https://github.com/rt64/rt64) by Dario and contributors, the renderer
@@ -115,8 +107,13 @@ See [BUILDING.md](BUILDING.md).
   contributors, the launcher and input layer
 - Zoinkity, for the English translation of the game's text
 - [Mouse Injector](https://github.com/garungorp/MouseInjectorDolphinDuck) by
-  Carnivorous, whose Sin and Punishment driver pointed to the reticle's
-  position in memory
+  Carnivorous, whose Sin and Punishment driver pointed to the reticle in memory
+- The CRT filter is based on Timothy Lottes' CRT shader, and the LCD filter on
+  LCD3x by Gigaherz (both public domain)
+- The Rice texture pack hashing follows RT64's texture_hasher, based on
+  GlideN64 and Rice Video (GPL)
+- Steam artwork from [SteamGridDB](https://www.steamgriddb.com/), downloaded
+  when you use Add to Steam
 - [spimdisasm and rabbitizer](https://github.com/Decompollaborate) for finding
   function boundaries, and [n64sym](https://github.com/shygoo/n64sym) by shygoo
   for identifying the N64 SDK's functions
@@ -124,6 +121,5 @@ See [BUILDING.md](BUILDING.md).
   (SIL Open Font License 1.1)
 
 ## License
-
-The project's own code is GPL-3.0; see [COPYING](COPYING). The game itself remains
-the property of its rights holders.
+The project's own code is GPL-3.0; see [COPYING](COPYING). The game itself
+remains the property of its rights holders.

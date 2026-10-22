@@ -29,13 +29,23 @@ and leave the game's own behaviour, look and balance alone.
   `lib-patches/N64Recomp/`, STATUS.md round 3).
 - **Audio**: no crackle; the audio thread gets hardware-like AI length and
   FIFO status (STATUS.md round 6). Quitting can't hang on Windows.
+- **Any ROM**: any dump or text-only patch of the Japanese ROM is accepted by
+  its code fingerprint (`src/game/rom_version.cpp`); the launcher keeps a
+  Japanese and a translated one.
+- **Texture packs**: RT64 packs from the Mods tab; Rice Video packs from
+  `texture_packs`, matched at runtime by Rice's own texture keys
+  (lib-patches/rt64/0020; Rice read a 4-bit texture's palette at twice its
+  offset, and packs are named by that). Tested with Vanit's English pack.
+- **Mouse aim**: Absolute or Relative, writing the reticle's position
+  (`src/main/mouse.cpp`); Analog Aim takes the stick unstepped.
+- **Extras**: Enhancements and Cheats tabs, screen filters and bloom, Add to
+  Steam (from the Turok Rage Wars port).
 
 ## Next
 
 - Play further: the rest of stage 1 and the later stages, the other menu
   options, saving.
 - Confirm the EEPROM size (4K assumed).
-- Rumble, controller defaults for the game's controls.
 - Widescreen: the second-long zoom into the title (drawn by the CPU, stays
   4:3); a few scenes show sky or nothing past the 4:3 view's edges (the
   entry scene's corners, the elevator's top corner: no geometry there).
@@ -47,10 +57,6 @@ and leave the game's own behaviour, look and balance alone.
   fire wave and energy fountains.
 - The in-game pause: a looping effect sound in stage 2, taken as the game's
   own (closed).
-- Texture packs: RT64 packs from the Mods menu; Rice Video packs from
-  `texture_packs`, matched at runtime by Rice's own texture keys
-  (lib-patches/rt64/0020; Rice read a 4-bit texture's palette at twice its
-  offset, and packs are named by that). Tested with Vanit's English pack.
 - On hold: for modders, a texture dump switch, the list of text textures that differ between the ROMs, and the
   symbol file with names as functions are identified.
 

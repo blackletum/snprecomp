@@ -6,7 +6,7 @@
 # itself (a Developer PowerShell often defaults to x86, which can't link x64):
 #
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-#   .\tools\package-windows.ps1 -Version 0.1.0-beta
+#   .\tools\package-windows.ps1 -Version 0.2.0
 #
 # Output: dist\SnPRecompiled-<version>-windows.zip containing the exe,
 # its DLLs, the assets folder (loaded relative to the working directory, which
@@ -57,7 +57,7 @@ foreach ($file in @("SnPRecompiled.exe", "SDL2.dll", "dxil.dll", "dxcompiler.dll
     Copy-Item (Join-Path $BuildDir $file) $stage
 }
 Copy-Item "assets" $stage -Recurse
-Copy-Item "README.md", "COPYING" $stage
+Copy-Item "README.md", "CHANGELOG.md", "COPYING" $stage
 
 # License notices for the third-party code built into the exe or shipped
 # beside it. Each library's own file, gathered under licenses\.

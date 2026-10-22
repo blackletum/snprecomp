@@ -1,10 +1,7 @@
-// The launcher menu. The frontend's default one only offers the first
-// registered game, and checks a loaded ROM against that game alone, so the
-// English translation's ROM was refused as "not the correct game". This one
-// takes either kind of ROM, Japanese or translated, through one Load ROM (or
-// Change ROM) option and has a start option for each that's loaded
-// (src/main/main.cpp's supported_games), plus Add to Steam
-// (src/main/steam_shortcut.cpp).
+// The launcher menu: Load ROM (or Change ROM) takes a Japanese or translated
+// ROM, with a Start Game option for each one loaded (src/main/main.cpp's
+// supported_games), plus Settings, Add to Steam (src/main/steam_shortcut.cpp)
+// and Exit.
 #include <atomic>
 #include <mutex>
 #include <optional>
@@ -203,8 +200,7 @@ namespace {
         }
 
         // The menu belongs to the first loaded ROM's game (the Japanese one if none
-        // is loaded yet); the Controls/Settings/Mods options use its mod game id,
-        // which both games share.
+        // is loaded yet); Settings uses its mod game id, which both games share.
         const recomp::GameEntry& menu_game = supported_games[loaded.empty() ? 0 : loaded[0]->game_index];
         recompui::GameOptionsMenu* options = menu->init_game_options_menu(
             menu_game.game_id, menu_game.mod_game_id, "Sin and Punishment", menu_game.thumbnail_bytes, recompui::GameOptionsMenuLayout::Center);

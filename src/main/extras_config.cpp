@@ -1,5 +1,6 @@
-// The Enhancements and Cheats tabs of the menu, and the screen filter and
-// bloom on the Graphics tab. The game reads them through src/game/extras.cpp.
+// The Enhancements and Cheats tabs of the menu, and Screen Filter, Bloom and
+// Texture Packs on the Graphics tab. The game reads the tabs through
+// src/game/extras.cpp.
 #include "snp_config.h"
 
 #include <filesystem>

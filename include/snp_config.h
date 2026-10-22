@@ -3,7 +3,8 @@
 
 #include "librecomp/config.hpp"
 
-// Game-specific options, shown on the General tab (src/main/game_config.cpp).
+// The game's own options: General and Controls tabs (src/main/game_config.cpp),
+// Graphics, Enhancements and Cheats tabs (src/main/extras_config.cpp).
 namespace snp::config {
     // Adds this game's options to the General tab. Call between
     // recompui::config::create_general_tab() and recompui::config::finalize().
