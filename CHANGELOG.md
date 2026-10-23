@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Start Game didn't show after loading a ROM until the app was restarted.
+
+### Changed
+- The translated ROM's Start Game is labeled Translation, not English (Spanish
+  and other translations go there too).
+
 ## [0.2.0 Beta] - 2026-10-23
 
 ### Added

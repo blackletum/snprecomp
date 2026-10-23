@@ -1,0 +1,13 @@
+diff --git a/recompui/src/base/ui_launcher.cpp b/recompui/src/base/ui_launcher.cpp
+index 6de7a94..a7ee260 100644
+--- a/recompui/src/base/ui_launcher.cpp
++++ b/recompui/src/base/ui_launcher.cpp
+@@ -563,7 +563,7 @@ namespace recompui {
+ 
+     GameOptionsMenu *LauncherMenu::init_game_options_menu(std::u8string game_id, std::string mod_game_id, std::string game_display_name, std::span<const char> game_thumbnail, GameOptionsMenuLayout layout) {
+         if (game_options_menu != nullptr) {
+-            menu_container->remove_child(game_options_menu, false);
++            menu_container->remove_child(game_options_menu, true);
+         }
+         auto context = get_current_context();
+         game_options_menu = context.create_element<GameOptionsMenu>(menu_container, game_id, mod_game_id, game_display_name, game_thumbnail, layout);

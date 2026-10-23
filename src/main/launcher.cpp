@@ -29,7 +29,7 @@ namespace {
 
     // Start options are listed in this order.
     const RomChoice rom_choices[] = {
-        { 1, "English" },
+        { 1, "Translation" },
         { 0, "Japanese" },
     };
 
@@ -157,6 +157,8 @@ namespace {
             for (const recomp::GameEntry& game : supported_games) {
                 switch (recomp::select_rom(path, game.game_id)) {
                     case recomp::RomValidationError::Good: {
+                        // The runtime only checks stored ROMs at startup.
+                        recomp::check_all_stored_roms();
                         recompui::ContextId context = recompui::get_launcher_context_id();
                         bool opened = context.open_if_not_already();
                         build_menu(recompui::get_launcher_menu());
@@ -237,7 +239,7 @@ namespace {
         float top = 50.0f - block / 2.0f;
         title_wrapper->set_top(top + title_height / 2.0f, recompui::Unit::Percent);
         options->set_bottom(100.0f - (top + block), recompui::Unit::Percent);
-        options->set_width(520.0f, recompui::Unit::Dp);
+        options->set_width(600.0f, recompui::Unit::Dp);
     }
 }
 
