@@ -753,8 +753,12 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     if (clear_all) {
         clear_after_switch--;
     }
-    if (((widen && starts_with_picture) || clear_all) && first_cimg_w0 != 0) {
-        MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, clear_all);
+    // In Expand every frame starts cleared: the game never clears the
+    // framebuffer (its scenery covers the 4:3 picture), so wherever the
+    // scenery doesn't reach past it (gaps in a boss arena's far skyline) the
+    // wide picture kept old frames.
+    if ((widen || clear_all) && first_cimg_w0 != 0) {
+        MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, true);
     }
     if (log_frame) {
         fflush(stdout);
