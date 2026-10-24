@@ -214,6 +214,126 @@ namespace {
         set_command(rdram, fullsync_addr, 0xDE010000, suffix);
     }
 
+    // The motion blur blends the effect buffer onto the frame, then copies the
+    // frame into it, both in strips of 6 rows from row 8 to 231: the rows
+    // the N64's border covers were left out. Expand shows them, unblurred,
+    // as a band offset from the rest of the picture at the top and bottom.
+    // In Expand the first and last strips of each pass are replaced with a
+    // call to a list that also draws strips for rows 0 - 7 or 232 - 239, made
+    // from that strip's own commands: its texture image and rows moved.
+    constexpr uint32_t blur_buffer = 0x0011B760;
+    constexpr uint32_t blur_area = 0x80740000;
+    constexpr uint32_t blur_banks = 4;
+    constexpr uint32_t blur_bank_bytes = 0x1000;
+    constexpr uint32_t blur_entry_commands = 64;
+    constexpr uint32_t blur_entry_bytes = blur_entry_commands * 8;
+    constexpr uint32_t blur_entries = blur_bank_bytes / blur_entry_bytes;
+    constexpr uint32_t blur_strip_max = 12; // commands, from its texture image to its rectangle's last word
+    constexpr uint32_t row_bytes = 320 * 2;
+    uint32_t blur_bank = 0;
+    uint32_t blur_entry = 0;
+
+    bool in_blur_area(uint32_t addr) {
+        return addr >= blur_area && addr < blur_area + blur_banks * blur_bank_bytes;
+    }
+
+    // addr: a G_SETTIMG. If it starts a strip of the motion blur (a texture
+    // rectangle across the screen, its image the rows it's drawn on of a
+    // 320-wide one) that is the first or last of a pass, the strip is moved
+    // into an entry with the extra strips. An entry starts with two no-ops
+    // holding the strip's length and where it is in the entry, for putting it
+    // back in a list the game draws again.
+    bool extend_blur_strip(uint8_t* rdram, uint32_t addr) {
+        if (blur_entry >= blur_entries) {
+            return false;
+        }
+        uint32_t words = 0;
+        uint32_t rect = 0;
+        for (uint32_t i = 1; i < blur_strip_max; i++) {
+            uint32_t op = (uint32_t)MEM_W(0, (gpr)(int32_t)(addr + i * 8)) >> 24;
+            if (op == 0xE4) {
+                rect = addr + i * 8;
+                words = i + 3;
+                break;
+            }
+            if (op != 0xF5 && op != 0xF4 && op != 0xF3 && op != 0xF2 && op != 0xE6 && op != 0xE7 && op != 0xE8) {
+                return false;
+            }
+        }
+        if (rect == 0) {
+            return false;
+        }
+        uint32_t rw0 = (uint32_t)MEM_W(0, (gpr)(int32_t)rect), rw1 = (uint32_t)MEM_W(4, (gpr)(int32_t)rect);
+        uint32_t ulx = (rw1 >> 12) & 0xFFF, uly = rw1 & 0xFFF, lrx = (rw0 >> 12) & 0xFFF, lry = rw0 & 0xFFF;
+        if (ulx != 0 || lrx != 320 * 4 || (uly & 3) != 0 || lry <= uly) {
+            return false;
+        }
+        bool first = (uly == 8 * 4);
+        bool last = (uly <= 231 * 4 && lry >= 231 * 4);
+        if (!first && !last) {
+            return false;
+        }
+        // The image the strip reads, row 0 of it: the effect buffer or a 320-wide color image.
+        uint32_t timg = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+        uint32_t base = (resolve(timg) & 0x1FFFFFFF) - (uly / 4) * row_bytes;
+        bool known = (base == blur_buffer);
+        for (uint32_t i = 0; i < cimg_count; i++) {
+            known = known || (base == (cimgs[i][1] & 0x1FFFFFFF));
+        }
+        if (!known) {
+            return false;
+        }
+        uint32_t entry = blur_area + blur_bank * blur_bank_bytes + blur_entry * blur_entry_bytes;
+        blur_entry++;
+        uint32_t commands[blur_entry_commands][2];
+        uint32_t n = 0;
+        auto cmd = [&](uint32_t a, uint32_t b) { commands[n][0] = a; commands[n][1] = b; n++; };
+        // A copy of the strip on rows from top, reading those rows, rows
+        // high. Whether the rectangle's lower edge is drawn (copy mode) or
+        // not shows in where the game's strip ends: on its last row (13 or
+        // 231) or after it.
+        const int32_t edge = (int32_t)lry - (first ? 14 * 4 : 232 * 4);
+        auto strip = [&](uint32_t top, uint32_t rows) {
+            for (uint32_t i = 0; i < words; i++) {
+                uint32_t a = (uint32_t)MEM_W(0, (gpr)(int32_t)(addr + i * 8));
+                uint32_t b = (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + i * 8));
+                if (i == 0) {
+                    b = 0x80000000u | (base + top * row_bytes);
+                }
+                else if (addr + i * 8 == rect) {
+                    uint32_t y0 = top * 4;
+                    uint32_t y1 = (uint32_t)((int32_t)(y0 + rows * 4) + edge);
+                    a = (a & 0xFFFFF000) | (y1 & 0xFFF);
+                    b = (b & 0xFFFFF000) | (y0 & 0xFFF);
+                }
+                cmd(a, b);
+            }
+        };
+        cmd(G_NOOP << 24, words);
+        cmd(G_NOOP << 24, 0);
+        if (first) {
+            strip(0, 2);
+            strip(2, 6);
+        }
+        commands[1][1] = n;
+        for (uint32_t i = 0; i < words; i++) {
+            cmd((uint32_t)MEM_W(0, (gpr)(int32_t)(addr + i * 8)), (uint32_t)MEM_W(4, (gpr)(int32_t)(addr + i * 8)));
+        }
+        if (last) {
+            strip(232, 6);
+            strip(238, 2);
+        }
+        cmd(0xDF000000, 0);
+        for (uint32_t i = 0; i < n; i++) {
+            set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
+        }
+        set_command(rdram, addr, 0xDE000000, entry);
+        for (uint32_t i = 1; i < words; i++) {
+            set_command(rdram, addr + i * 8, G_NOOP << 24, 0);
+        }
+        return true;
+    }
+
     bool is_prefix(uint32_t addr) {
         return addr >= prefix_area && addr < prefix_area + prefix_slots * prefix_bytes;
     }
@@ -691,6 +811,17 @@ namespace {
                 w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
                 w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
             }
+            if ((w0 >> 24) == 0xDE && in_blur_area(w1)) {
+                // A blur strip extended in an earlier frame: back to the
+                // game's commands, extended again below.
+                uint32_t words = (uint32_t)MEM_W(4, (gpr)(int32_t)w1);
+                uint32_t at = w1 + (uint32_t)MEM_W(12, (gpr)(int32_t)w1) * 8;
+                for (uint32_t i = 0; i < words && i < blur_strip_max; i++) {
+                    set_command(rdram, addr + i * 8, (uint32_t)MEM_W(0, (gpr)(int32_t)(at + i * 8)), (uint32_t)MEM_W(4, (gpr)(int32_t)(at + i * 8)));
+                }
+                w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+                w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            }
             if ((w0 >> 24) == 0xDE && in_interp_area(w1)) {
                 // A matrix load tagged in an earlier frame (a list the game
                 // keeps): back to the game's command, tagged again below.
@@ -729,6 +860,15 @@ namespace {
                         }
                     }
                     set_command(rdram, addr, w0, w1);
+                }
+                else if ((w0 >> 24) == 0xFD && seen_draw && !starts_with_picture && !in_blur_area(addr) &&
+                    extend_blur_strip(rdram, addr)) {
+                    w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+                    w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+                }
+                else if (w0 == effect_scissor_w0 && w1 == effect_scissor_w1 && seen_draw && !starts_with_picture) {
+                    // The blur's scissor, without the border's rows.
+                    set_command(rdram, addr, w0 = full_scissor_w0, w1 = full_scissor_w1);
                 }
                 else if ((w0 >> 24) == G_VTX) {
                     widen_screen_quad(rdram, addr, w0, w1);
@@ -899,6 +1039,8 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     in_hud = false;
     front_end = snp_in_front_end_menus();
     hud_bank = (hud_bank + 1) % hud_banks;
+    blur_bank = (blur_bank + 1) % blur_banks;
+    blur_entry = 0;
     hud_entry = 0;
     fill_run_count = 0;
     instance_tags.clear();
