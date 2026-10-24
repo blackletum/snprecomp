@@ -92,8 +92,11 @@ namespace {
     // Number one kind's instances in a display list. Pairs of one now and one
     // last time are taken closest first, each taking that one's number; the
     // rest get new numbers. Closeness is to where its last movement would take
-    // the one from last time (fast rows of alike objects), plus how differently
-    // they're turned (alike layers in one place).
+    // the one from last time (fast rows of alike objects), plus a little for
+    // how differently they're turned, up to 24 units: enough to tell alike
+    // layers in one place apart, not to outweigh a real distance (spinning
+    // parts, turned anew every frame, swapped numbers 80 units apart and
+    // blended into each other in the intro).
     void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now) {
         struct Pair {
             float d;
@@ -110,7 +113,7 @@ namespace {
                 }
                 const Placed& p = placed[j];
                 const float expected[3] = { p.pos[0] + p.vel[0], p.pos[1] + p.vel[1], p.pos[2] + p.vel[2] };
-                const float turn = 64.0f * orientation_difference(now[i]->axes, p.axes);
+                const float turn = 4.0f * orientation_difference(now[i]->axes, p.axes);
                 pairs.push_back({ distance2(now[i]->pos, expected) + turn * turn, i, j });
             }
         }

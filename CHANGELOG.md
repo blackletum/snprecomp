@@ -24,6 +24,10 @@
 - Jittering objects at framerates above 30, like the flying debris Saki rides
   in stage 2-2.
 - Saki snapping into place over and over when strafing at framerates above 30.
+- Spinning parts flickering between each other at framerates above 30 (in
+  the intro).
+- A band along the top and bottom of the screen in widescreen while the
+  motion blur is on, not blurred with the rest of the picture.
 
 ## [0.2.1 Beta] - 2026-10-24
 
