@@ -260,3 +260,26 @@ text = "ctx->r2 = snp_rom_value(rdram, (uint32_t)ctx->r2, 0x8003C198, 0x3C0200A9
 func = "func_8003C0D0"
 before_vram = 0x8003C1F4
 text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003C1EC, 0x3C0200A9, 0x8003C1F0, 0x2443CA40); // snp: ROM constant"
+
+# func_8003A9CC: the ROM offset of the sound data's first wave table
+# (0x013C2C20 in the Japanese release). The Spanish dub's voices, added to the
+# English translation by tools/make_spanish_voices.py, sit past its end.
+[[patches.hook]]
+func = "func_8003A9CC"
+before_vram = 0x8003AB30
+text = "ctx->r4 = snp_rom_value(rdram, (uint32_t)ctx->r4, 0x8003AB28, 0x3C02013C, 0x8003AB2C, 0x24442C20); // snp: ROM constant"
+
+[[patches.hook]]
+func = "func_8003A9CC"
+before_vram = 0x8003AB80
+text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003AB78, 0x3C02013C, 0x8003AB7C, 0x24432C20); // snp: ROM constant"
+
+[[patches.hook]]
+func = "func_8003A9CC"
+before_vram = 0x8003ABAC
+text = "ctx->r2 = snp_rom_value(rdram, (uint32_t)ctx->r2, 0x8003ABA4, 0x3C02013C, 0x8003ABA8, 0x24422C20); // snp: ROM constant"
+
+[[patches.hook]]
+func = "func_8003A9CC"
+before_vram = 0x8003ABF8
+text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003ABF0, 0x3C02013C, 0x8003ABF4, 0x24432C20); // snp: ROM constant"

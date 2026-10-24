@@ -38,6 +38,11 @@ patched onto it. Known good:
 Other dumps work too: `.z64`, `.n64` and `.v64`, and other translation
 patches as long as they only change text and graphics.
 
+The Spanish translation changes the game's code, so it doesn't run. Its
+Spanish voices can be added to the English translation instead: run
+`python3 tools/make_spanish_voices.py english.z64 spanish_dubbed.z64 out.z64`
+(from the source code) and load `out.z64`.
+
 Start the game, pick **Load ROM** and select your file. It only has to be
 done once. You can keep one Japanese and one English ROM, each with its own
 saves, and pick either one with **Start Game**. **Change ROM** swaps one out.

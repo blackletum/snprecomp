@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- Spanish voices: tools/make_spanish_voices.py adds the Spanish dub's voices
+  to the English translation's ROM, which then loads as the translation.
 - Stick Sensitivity on the Controls tab, how fast the stick moves the reticle.
 - 8X MSAA, greyed out if your GPU doesn't support it.
 

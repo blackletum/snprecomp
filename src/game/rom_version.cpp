@@ -23,11 +23,12 @@ namespace {
     constexpr uint32_t varying_words[] = {
         0x80025C00, 0x80025C04, 0x80025C08, 0x80025C0C,
         0x8002BD5C, 0x8002BD8C, 0x8002BD98,
+        0x8003AB28, 0x8003AB2C, 0x8003AB78, 0x8003AB7C, 0x8003ABA4, 0x8003ABA8, 0x8003ABF0, 0x8003ABF4,
         0x8003C158, 0x8003C15C, 0x8003C198, 0x8003C19C, 0x8003C1EC, 0x8003C1F0,
     };
 
     // The fingerprint of the Japanese release's code (tools/rom_fingerprint.py).
-    constexpr uint64_t code_fingerprint = 0x087c5eaa445375ebull;
+    constexpr uint64_t code_fingerprint = 0xe941bdc06663d9adull;
 
     uint64_t fnv1a(const uint8_t* data, size_t size, uint64_t h) {
         for (size_t i = 0; i < size; i++) {
