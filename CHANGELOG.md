@@ -30,6 +30,8 @@
   motion blur is on, not blurred with the rest of the picture.
 - The flashing box around the LIFE gauge in the tutorial came apart in
   widescreen.
+- Linux: Load ROM could crash on a Wayland desktop (Bazzite) before the file
+  picker opened.
 
 ## [0.2.1 Beta] - 2026-10-24
 
