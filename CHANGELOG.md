@@ -1,36 +1,30 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.2 Beta] - 2026-10-24
 
 ### Added
-- Spanish Voices on the Sound tab: the Spanish dub's voices with the
-  English (or Japanese) text. Load Spanish ROM takes the dubbed Spanish ROM
-  once. The Spanish translation itself can't run, it changes the game's code.
+- Spanish Voices on the Sound tab: the Spanish dub's voices with the English
+  or Japanese text. Press Load Spanish ROM once and pick the dubbed Spanish
+  ROM. (The Spanish translation itself can't run, it changes the game's code.)
 - Stick Sensitivity on the Controls tab, how fast the stick moves the reticle.
 - 8X MSAA, greyed out if your GPU doesn't support it.
 
 ### Fixed
 - Motion blur in widescreen, broken in 0.2.1.
 - Black gaps at the bottom of the screen in widescreen when aiming high
-  (from 0.2.1). Only the strips beside the 4:3 picture are cleared now.
+  (from 0.2.1).
 - Lock-on didn't work with mouse aim. In lock-on mode, flick the mouse toward
   an enemy to lock on, and flick again to switch targets.
-- The reticle drifted off its crosshair lines and stuttered as it appeared at
-  framerates above 30. The HUD isn't interpolated anymore.
+- The reticle drifted off its crosshair and stuttered at framerates above 30.
 - Black patches in the corners in widescreen when aiming to the far left or
-  right (the bottom corners in stage 1, the top corners in 2-2). The
-  backdrop colour reaches the screen's edges now, and anything else past the
-  scenery's edge is the colour the far scenery fades into.
-- The mouse moved the reticle during the How to Play demo on the title screen,
-  so the demo went off script and Saki died. Mouse Aim, Analog Aim and Stick
-  Sensitivity are off while the demo plays.
-- Jittering objects at framerates above 30, like the flying debris Saki rides
-  in stage 2-2.
+  right (stage 1 and 2-2).
+- The mouse moved the reticle during the How to Play demo, so the demo went
+  off script and Saki died.
+- Jittering objects at framerates above 30, like the flying debris in 2-2.
 - Saki snapping into place over and over when strafing at framerates above 30.
-- Crates and other parts of the intro's scenery flickering between each other
-  at framerates above 30.
-- A band along the top and bottom of the screen in widescreen while the
-  motion blur is on, not blurred with the rest of the picture.
+- Crates in the intro flickering at framerates above 30.
+- A band along the top and bottom of the screen in widescreen during motion
+  blur.
 - The flashing box around the LIFE gauge in the tutorial came apart in
   widescreen.
 - Linux: Load ROM could crash on a Wayland desktop (Bazzite) before the file
