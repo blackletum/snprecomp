@@ -63,11 +63,7 @@ namespace {
     bool seen_draw;
     bool starts_with_picture;
     bool effect_area_scissor; // the game's own 0,8 - 320,231 scissor was set
-    // Whether the frame fills a backdrop band across the inset, and the fog
-    // colour its first triangles are drawn with (0 if none).
-    bool backdrop_band;
-    uint32_t color_image; // the latest color image (the Z buffer's clear is no backdrop)
-    constexpr uint32_t z_buffer = 0x80000400;
+    // The fog colour the frame's first triangles are drawn with (0 if none).
     bool seen_triangle;
     uint32_t fog_color;
     uint32_t first_fog_color;
@@ -710,7 +706,6 @@ namespace {
                 else if ((w0 >> 24) == G_FILLRECT && ((w0 >> 12) & 0xFFF) == 307 * 4 && ((w1 >> 12) & 0xFFF) == 12 * 4) {
                     // A fill rectangle across the inset's full width (the clear, fades
                     // and tints, a backdrop band): full screen width.
-                    backdrop_band = backdrop_band || color_image != z_buffer;
                     w0 = (w0 & 0xFF000FFF) | ((319 * 4) << 12);
                     w1 = (w1 & 0xFF000FFF) | (0 << 12);
                     // Covering the inset's full height too: the full screen height,
@@ -748,7 +743,6 @@ namespace {
             }
             switch (w0 >> 24) {
                 case 0xFF: // G_SETCIMG
-                    color_image = w1;
                     if (first_cimg_w0 == 0) {
                         first_cimg_w0 = w0;
                         first_cimg_w1 = w1;
@@ -899,8 +893,6 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;
-    backdrop_band = false;
-    color_image = 0;
     seen_triangle = false;
     fog_color = 0;
     first_fog_color = 0;
@@ -932,12 +924,13 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
             MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, clear_all);
         }
         else if (widen && cimg_count > 0) {
-            // Black, or in a frame with no backdrop band of its own, the fog
-            // colour its scenery starts with: the far scenery fades into it
-            // (2-2's sea, which past its edge left the corners of a rolled
-            // wide view empty).
+            // The fog colour the frame's scenery starts with (black if none):
+            // the far scenery fades into it, and it shows where the scenery
+            // doesn't reach the strips (past the edge of 2-2's sea in the
+            // corners of a rolled wide view, between its clouds and its sky
+            // band).
             uint32_t fill = 0x00010001;
-            if (!backdrop_band && (first_fog_color & 0xFFFFFF00) != 0) {
+            if ((first_fog_color & 0xFFFFFF00) != 0) {
                 uint32_t r = first_fog_color >> 24, g = (first_fog_color >> 16) & 0xFF, b = (first_fog_color >> 8) & 0xFF;
                 uint32_t c = ((r >> 3) << 11) | ((g >> 3) << 6) | ((b >> 3) << 1) | 1;
                 fill = (c << 16) | c;
