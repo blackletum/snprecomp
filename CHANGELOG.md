@@ -7,6 +7,9 @@
 - 8X MSAA, greyed out if your GPU doesn't support it.
 
 ### Fixed
+- Motion blur in widescreen, broken in 0.2.1.
+- Black gaps at the bottom of the screen in widescreen when aiming high
+  (from 0.2.1). Only the strips beside the 4:3 picture are cleared now.
 - Lock-on didn't work with mouse aim. In lock-on mode, flick the mouse toward
   an enemy to lock on, and flick again to switch targets.
 

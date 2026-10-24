@@ -117,7 +117,7 @@ namespace {
     // back to Original.
     constexpr uint32_t prefix_area = 0x807F2000;
     constexpr uint32_t prefix_slots = 8;
-    constexpr uint32_t prefix_commands = 16; // the branch to the game's list is the last
+    constexpr uint32_t prefix_commands = 64; // the branch to the game's list is the last
     constexpr uint32_t prefix_bytes = prefix_commands * 8;
 
     // The screen-wide color images a frame draws to, in order (in gameplay
@@ -125,6 +125,24 @@ namespace {
     constexpr uint32_t max_cimgs = 4;
     uint32_t cimgs[max_cimgs][2];
     uint32_t cimg_count = 0;
+
+    // Textures a frame reads from a 320-wide image before drawing to it: the
+    // motion blur keeps the last frame in an effect buffer (0x8011B760) and
+    // draws it over the new one, so it mustn't be cleared.
+    constexpr uint32_t cimg_bytes = 320 * 240 * 2;
+    constexpr uint32_t max_early_reads = 1024;
+    uint32_t early_reads[max_early_reads];
+    uint32_t early_read_count = 0;
+
+    bool read_before_drawn(uint32_t cimg_w1) {
+        uint32_t start = cimg_w1 & 0x1FFFFFFF;
+        for (uint32_t i = 0; i < early_read_count; i++) {
+            if (early_reads[i] >= start && early_reads[i] < start + cimg_bytes) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     uint32_t prefix_slot = 0;
 
@@ -138,6 +156,9 @@ namespace {
         cmd(0xE3000A01, 0x00300000); // cycle type: fill
         cmd(0xF7000000, 0x00010001); // fill color: black, as the game's own clears
         for (uint32_t i = 0; i < (all ? cimg_count : 1); i++) {
+            if (read_before_drawn(cimgs[i][1])) {
+                continue;
+            }
             cmd(cimgs[i][0], cimgs[i][1]);
             cmd(full_scissor_w0, full_scissor_w1);
             cmd((G_FILLRECT << 24) | xy(319, 239), xy(0, 0));
@@ -391,6 +412,54 @@ namespace {
         }
     }
 
+    // A prefix that clears only the strips beside the 4:3 picture (where the
+    // N64 shows nothing) to black, then branches to the game's list: in
+    // Expand the scenery doesn't always reach past the 4:3 edge (gaps in a far
+    // skyline), and the game never clears its framebuffer, so the strips kept
+    // old frames. The 4:3 picture is left as the game draws it: rows the
+    // scenery misses there keep the last frames as on the N64 (the grass's
+    // gaps at the bottom), and the motion blur draws over the last frame.
+    uint32_t side_clear_prefix(uint8_t* rdram, uint32_t dl) {
+        uint32_t prefix = prefix_area + prefix_slot * prefix_bytes;
+        prefix_slot = (prefix_slot + 1) % prefix_slots;
+        uint32_t commands[prefix_commands][2];
+        uint32_t n = 0;
+        auto cmd = [&](uint32_t a, uint32_t b) { commands[n][0] = a; commands[n][1] = b; n++; };
+        // Each strip's width in 4:3 units (RT64 widens the picture by the
+        // window's aspect over 4:3), and a pixel more.
+        uint32_t strip = std::min<uint32_t>((uint32_t)(160.0f * (snp::get_widescreen_scale() - 1.0f) * 4.0f) + 4, 320 * 4);
+        cmd(0xE0525464, 0x10000064); // gEXEnable
+        cmd(0xE3000A01, 0x00300000); // cycle type: fill
+        cmd(0xF7000000, 0x00010001); // fill color: black, as the game's own clears
+        cmd(0x64000017, 0);          // gEXPushScissor
+        cmd(0x64000005, (origin_left << 2) | (origin_right << 14)); // gEXSetScissor: the whole window
+        cmd(0, 240 * 4);
+        for (uint32_t i = 0; i < cimg_count; i++) {
+            if (read_before_drawn(cimgs[i][1])) {
+                continue;
+            }
+            cmd(cimgs[i][0], cimgs[i][1]);
+            cmd(0x64000006, origin_left | (origin_left << 12)); // gEXSetRectAlign: from the left edge
+            cmd(0, 0);
+            cmd((G_FILLRECT << 24) | ((strip & 0xFFF) << 12) | (239 * 4), 0);
+            cmd(0x64000006, origin_right | (origin_right << 12)); // from the right edge
+            cmd((uint32_t)(uint16_t)right_origin_shift << 16, (uint32_t)(uint16_t)right_origin_shift << 16);
+            cmd((G_FILLRECT << 24) | ((319 * 4) << 12) | (239 * 4), ((320 * 4 - strip) & 0xFFF) << 12);
+        }
+        cmd(0x64000006, origin_none | (origin_none << 12)); // back to unanchored
+        cmd(0, 0);
+        cmd(0x64000018, 0);          // gEXPopScissor
+        cmd(cimgs[0][0], cimgs[0][1]); // the game's list starts on the first
+        while (n < prefix_commands - 1) {
+            cmd(G_NOOP << 24, 0);
+        }
+        cmd(0xDE010000, dl); // branch to the game's display list
+        for (uint32_t i = 0; i < n; i++) {
+            set_command(rdram, prefix + i * 8, commands[i][0], commands[i][1]);
+        }
+        return prefix;
+    }
+
     // A HUD element is a run of rectangles drawn back to back (only state
     // changes between them) that touch, directly or through others: a string's
     // glyphs, the life bar's frame and fill. Each is anchored as a whole by its
@@ -622,6 +691,21 @@ namespace {
                         }
                     }
                     break;
+                case 0xFD: { // G_SETTIMG: a read of an image not drawn to yet this frame?
+                    uint32_t image = resolve(w1) & 0x1FFFFFFF;
+                    bool drawn = false;
+                    for (uint32_t i = 0; i < cimg_count; i++) {
+                        uint32_t start = cimgs[i][1] & 0x1FFFFFFF;
+                        drawn = drawn || (image >= start && image < start + cimg_bytes);
+                    }
+                    for (uint32_t i = 0; i < early_read_count && !drawn; i++) {
+                        drawn = early_reads[i] == image; // already listed
+                    }
+                    if (!drawn && early_read_count < max_early_reads) {
+                        early_reads[early_read_count++] = image;
+                    }
+                    break;
+                }
                 case 0xE4: // G_TEXRECT
                     if (!seen_draw) {
                         starts_with_picture = (w1 & 0x00FFFFFF) == 0;
@@ -728,6 +812,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     }
     first_cimg_w0 = 0;
     cimg_count = 0;
+    early_read_count = 0;
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;
@@ -754,12 +839,13 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     if (clear_all) {
         clear_after_switch--;
     }
-    // In Expand every frame starts cleared: the game never clears the
-    // framebuffer (its scenery covers the 4:3 picture), so wherever the
-    // scenery doesn't reach past it (gaps in a boss arena's far skyline) the
-    // wide picture kept old frames.
-    if ((widen || clear_all) && first_cimg_w0 != 0) {
-        MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, true);
+    if (first_cimg_w0 != 0) {
+        if ((widen && starts_with_picture) || clear_all) {
+            MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, clear_all);
+        }
+        else if (widen && cimg_count > 0) {
+            MEM_W(0x30, task) = (int32_t)side_clear_prefix(rdram, dl);
+        }
     }
     if (log_frame) {
         fflush(stdout);
