@@ -101,6 +101,7 @@ void snp::config::apply_texture_packs() {
 }
 
 void snp::config::lock_game_start_options() {
+    snp::config::lock_spanish_voices_option();
     if (graphics_options_added) {
         recompui::config::get_graphics_config().update_option_disabled(texture_packs_id, true);
     }
@@ -149,6 +150,7 @@ void snp::config::add_extras_tabs() {
         "Works best with Analog Aim on.",
         50.0, 200.0, 5.0, 0, true, 100.0
     );
+    snp::config::add_spanish_voices_option(enhancements);
     // On the Controls tab instead (lib-patches/RecompFrontend/0002).
     recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
     recompui::config::show_option_on_controls_tab(enhancements_id, "stick_sensitivity");

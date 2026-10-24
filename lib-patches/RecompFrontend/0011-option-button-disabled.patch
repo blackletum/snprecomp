@@ -1,0 +1,13 @@
+diff --git a/recompui/src/config/ui_config_page_options_menu.cpp b/recompui/src/config/ui_config_page_options_menu.cpp
+index 091cfc6..6c2fd52 100644
+--- a/recompui/src/config/ui_config_page_options_menu.cpp
++++ b/recompui/src/config/ui_config_page_options_menu.cpp
+@@ -256,6 +256,8 @@ void ConfigPageOptionsMenu::render_config_options() {
+                 button->set_margin_bottom(16.0f);
+                 std::function<void()> callback = option_button->callback;
+                 button->add_pressed_callback([callback]() { callback(); });
++                // Greyed out with its option.
++                button->set_enabled(!config->is_config_option_disabled(i));
+             }
+         }
+     }

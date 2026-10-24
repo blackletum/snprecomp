@@ -262,8 +262,8 @@ before_vram = 0x8003C1F4
 text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003C1EC, 0x3C0200A9, 0x8003C1F0, 0x2443CA40); // snp: ROM constant"
 
 # func_8003A9CC: the ROM offset of the sound data's first wave table
-# (0x013C2C20 in the Japanese release). The Spanish dub's voices, added to the
-# English translation by tools/make_spanish_voices.py, sit past its end.
+# (0x013C2C20 in the Japanese release). With Spanish Voices on, the Spanish
+# dub's sound data is added past the ROM's end (src/main/spanish_voices.cpp).
 [[patches.hook]]
 func = "func_8003A9CC"
 before_vram = 0x8003AB30

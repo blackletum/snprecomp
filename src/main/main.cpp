@@ -67,6 +67,9 @@ extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
 
 void register_snp_overlays(); // register_overlays.cpp
 bool snp_rom_check(const recomp::GameEntry& game, const std::vector<uint8_t>& rom); // rom_version.cpp
+namespace snp {
+    void apply_spanish_voices(uint8_t* rdram, recomp_context* context); // spanish_voices.cpp
+}
 
 namespace snp {
     void apply_theme(); // theme.cpp
@@ -384,7 +387,7 @@ std::vector<recomp::GameEntry> supported_games = {
         .has_compressed_code = false,
         .entrypoint_address = (gpr)(int32_t)0x80025C00u,
         .entrypoint = recomp_entrypoint,
-        .on_init_callback = nullptr,
+        .on_init_callback = snp::apply_spanish_voices,
     },
     {
         .rom_hash = 0x912f22306cafedd2ULL,
@@ -399,7 +402,7 @@ std::vector<recomp::GameEntry> supported_games = {
         .has_compressed_code = false,
         .entrypoint_address = (gpr)(int32_t)0x80025C00u,
         .entrypoint = recomp_entrypoint,
-        .on_init_callback = nullptr,
+        .on_init_callback = snp::apply_spanish_voices,
     },
 };
 
