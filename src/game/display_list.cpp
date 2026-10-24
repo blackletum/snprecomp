@@ -63,6 +63,14 @@ namespace {
     bool seen_draw;
     bool starts_with_picture;
     bool effect_area_scissor; // the game's own 0,8 - 320,231 scissor was set
+    // Whether the frame fills a backdrop band across the inset, and the fog
+    // colour its first triangles are drawn with (0 if none).
+    bool backdrop_band;
+    uint32_t color_image; // the latest color image (the Z buffer's clear is no backdrop)
+    constexpr uint32_t z_buffer = 0x80000400;
+    bool seen_triangle;
+    uint32_t fog_color;
+    uint32_t first_fog_color;
 
     void set_command(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         MEM_W(0, (gpr)(int32_t)addr) = (int32_t)w0;
@@ -463,13 +471,14 @@ namespace {
     }
 
     // A prefix that clears only the strips beside the 4:3 picture (where the
-    // N64 shows nothing) to black, then branches to the game's list: in
-    // Expand the scenery doesn't always reach past the 4:3 edge (gaps in a far
-    // skyline), and the game never clears its framebuffer, so the strips kept
-    // old frames. The 4:3 picture is left as the game draws it: rows the
-    // scenery misses there keep the last frames as on the N64 (the grass's
-    // gaps at the bottom), and the motion blur draws over the last frame.
-    uint32_t side_clear_prefix(uint8_t* rdram, uint32_t dl) {
+    // N64 shows nothing) to fill (black, or a fog colour), then branches to
+    // the game's list: in Expand the scenery doesn't always reach past the
+    // 4:3 edge (gaps in a far skyline), and the game never clears its
+    // framebuffer, so the strips kept old frames. The 4:3 picture is left as
+    // the game draws it: rows the scenery misses there keep the last frames
+    // as on the N64 (the grass's gaps at the bottom), and the motion blur
+    // draws over the last frame.
+    uint32_t side_clear_prefix(uint8_t* rdram, uint32_t dl, uint32_t fill) {
         uint32_t prefix = prefix_area + prefix_slot * prefix_bytes;
         prefix_slot = (prefix_slot + 1) % prefix_slots;
         uint32_t commands[prefix_commands][2];
@@ -480,7 +489,7 @@ namespace {
         uint32_t strip = std::min<uint32_t>((uint32_t)(160.0f * (snp::get_widescreen_scale() - 1.0f) * 4.0f) + 4, 320 * 4);
         cmd(0xE0525464, 0x10000064); // gEXEnable
         cmd(0xE3000A01, 0x00300000); // cycle type: fill
-        cmd(0xF7000000, 0x00010001); // fill color: black, as the game's own clears
+        cmd(0xF7000000, fill);
         cmd(0x64000017, 0);          // gEXPushScissor
         cmd(0x64000005, (origin_left << 2) | (origin_right << 14)); // gEXSetScissor: the whole window
         cmd(0, 240 * 4);
@@ -701,6 +710,7 @@ namespace {
                 else if ((w0 >> 24) == G_FILLRECT && ((w0 >> 12) & 0xFFF) == 307 * 4 && ((w1 >> 12) & 0xFFF) == 12 * 4) {
                     // A fill rectangle across the inset's full width (the clear, fades
                     // and tints, a backdrop band): full screen width.
+                    backdrop_band = backdrop_band || color_image != z_buffer;
                     w0 = (w0 & 0xFF000FFF) | ((319 * 4) << 12);
                     w1 = (w1 & 0xFF000FFF) | (0 << 12);
                     // Covering the inset's full height too: the full screen height,
@@ -738,6 +748,7 @@ namespace {
             }
             switch (w0 >> 24) {
                 case 0xFF: // G_SETCIMG
+                    color_image = w1;
                     if (first_cimg_w0 == 0) {
                         first_cimg_w0 = w0;
                         first_cimg_w1 = w1;
@@ -775,8 +786,17 @@ namespace {
                     }
                     seen_draw = true;
                     break;
-                case 0xF6: // G_FILLRECT
+                case 0xF8: // G_SETFOGCOLOR
+                    fog_color = w1;
+                    break;
                 case 0x05: case 0x06: case 0x07: // G_TRI1, G_TRI2, G_QUAD
+                    if (!seen_triangle) {
+                        seen_triangle = true;
+                        first_fog_color = fog_color;
+                    }
+                    seen_draw = true;
+                    break;
+                case 0xF6: // G_FILLRECT
                     seen_draw = true;
                     break;
                 default:
@@ -879,6 +899,11 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;
+    backdrop_band = false;
+    color_image = 0;
+    seen_triangle = false;
+    fog_color = 0;
+    first_fog_color = 0;
     in_hud = false;
     front_end = snp_in_front_end_menus();
     hud_bank = (hud_bank + 1) % hud_banks;
@@ -907,7 +932,17 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
             MEM_W(0x30, task) = (int32_t)clear_prefix(rdram, dl, clear_all);
         }
         else if (widen && cimg_count > 0) {
-            MEM_W(0x30, task) = (int32_t)side_clear_prefix(rdram, dl);
+            // Black, or in a frame with no backdrop band of its own, the fog
+            // colour its scenery starts with: the far scenery fades into it
+            // (2-2's sea, which past its edge left the corners of a rolled
+            // wide view empty).
+            uint32_t fill = 0x00010001;
+            if (!backdrop_band && (first_fog_color & 0xFFFFFF00) != 0) {
+                uint32_t r = first_fog_color >> 24, g = (first_fog_color >> 16) & 0xFF, b = (first_fog_color >> 8) & 0xFF;
+                uint32_t c = ((r >> 3) << 11) | ((g >> 3) << 6) | ((b >> 3) << 1) | 1;
+                fill = (c << 16) | c;
+            }
+            MEM_W(0x30, task) = (int32_t)side_clear_prefix(rdram, dl, fill);
         }
     }
     if (log_frame) {
