@@ -3,8 +3,9 @@
 The Spanish translation (IlDucci, PacoChan, Zoinkity and others, 2015) changes
 the game's code to show its text, so this port can't run it. Its dub's voices
 are only sound data: they're added to the English translation's ROM past its
-end, and the four instructions that give the sound data's ROM offset are
-pointed at them (the port reads them from the loaded ROM).
+end, the four instructions that give the sound data's ROM offset are pointed
+at them (the port reads them from the loaded ROM), and so is the table of the
+voice banks' ROM offsets in the main program's data.
 
 Usage: make_spanish_voices.py <english.z64> <spanish_dubbed.z64> <out.z64>
   english.z64: the English translation (SHA-1 5945ff3935d9d9531bbb5cfcabed7c198e2b2f41)
@@ -28,6 +29,10 @@ NEW_START = 0x02000000     # past the 32 MB ROM
 MAIN_VRAM = 0x80025C00
 MAIN_ROM = 0x1000
 PAIRS = [(0x8003AB28, 0x8003AB2C), (0x8003AB78, 0x8003AB7C), (0x8003ABA4, 0x8003ABA8), (0x8003ABF0, 0x8003ABF4)]
+
+# The voice banks' ROM offsets (40 words in the main program's data), in both ROMs.
+VOICE_TABLE = 0x399A8
+VOICE_BANKS = 40
 
 
 def sha1(data):
@@ -59,6 +64,12 @@ def main():
         o = addiu_addr - MAIN_VRAM + MAIN_ROM
         addiu = struct.unpack(">I", out[o:o + 4])[0]
         out[o:o + 4] = struct.pack(">I", (addiu & 0xFFFF0000) | (lo & 0xFFFF))
+    for i in range(VOICE_BANKS):
+        o = VOICE_TABLE + i * 4
+        bank = struct.unpack(">I", dubbed[o:o + 4])[0]
+        if not SOUND_START <= bank < SOUND_END:
+            sys.exit("The Spanish dub's voice table isn't where it should be.")
+        out[o:o + 4] = struct.pack(">I", bank - SOUND_START + NEW_START)
     open(sys.argv[3], "wb").write(out)
     print("Wrote %s (%d MB): English text, Spanish voices." % (sys.argv[3], len(out) >> 20))
 
