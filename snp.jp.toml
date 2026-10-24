@@ -148,8 +148,9 @@ before_vram = 0x80033AC4
 text = "{ extern void snp_interp_instance(uint32_t, uint32_t); snp_interp_instance((uint32_t)ctx->r4, (uint32_t)ctx->r5); } // snp: interpolation"
 
 # Every matrix guMtxF2L builds that the hooks above didn't record (objects
-# that aren't skeletons: the city stage's cones) is an object of its own, of
-# the kind its caller ($ra) makes ($a0 the float matrix, $a1 the matrix).
+# that aren't skeletons: the city stage's cones) is an object of its own
+# ($a0 the float matrix, $a1 the matrix), of the kind of model it draws
+# (src/game/display_list.cpp: $ra isn't kept by the recompiled code).
 [[patches.hook]]
 func = "guMtxF2L"
 before_vram = 0x80048940

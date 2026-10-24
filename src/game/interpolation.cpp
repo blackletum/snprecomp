@@ -273,10 +273,26 @@ namespace snp {
         }
     }
 
-    // The ID with its instance's number in it.
+    // An object's kind from the model its matrix draws (the first vertices or
+    // display list after the load): its caller can't tell them apart (the
+    // recompiled code doesn't keep $ra), and the jets, debris and Saki's
+    // surroundings all paired by closeness, wrongly at times.
+    void interp_set_object_model(uint32_t instance, uint32_t model) {
+        auto it = instances.find(instance);
+        if (it == instances.end() || !(instance & object_serials) || model == 0) {
+            return;
+        }
+        it->second.key = (uint32_t)(((uint64_t)model * 0x9E3779B97F4A7C15ull) >> 32) | 0x80000001u;
+    }
+
+    // The ID with its instance's number in it (an object's with its kind,
+    // so alike numbers of different models don't pair).
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance) {
         auto it = instances.find(instance);
         uint32_t n = it != instances.end() ? it->second.number : 0;
+        if (it != instances.end() && (instance & object_serials)) {
+            id = it->second.key >> 1;
+        }
         return (uint32_t)(((uint64_t)id << 32 | n) * 0x9E3779B97F4A7C15ull >> 33);
     }
 }

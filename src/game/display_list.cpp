@@ -27,6 +27,7 @@ namespace snp {
     uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance, bool& object);
     void interp_number_instances(const std::vector<uint32_t>& drawn);
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
+    void interp_set_object_model(uint32_t instance, uint32_t model);
 }
 
 bool snp_in_front_end_menus(); // src/game/overlay_loader.cpp
@@ -278,6 +279,30 @@ namespace {
     };
     std::vector<InstanceTag> instance_tags;
 
+    // The model a matrix load draws: the first vertices or display list
+    // after it, before the next matrix (0 if none). Loads tagged in an earlier
+    // frame are calls into the tag area.
+    uint32_t drawn_model(uint8_t* rdram, uint32_t addr) {
+        for (int n = 0; n < 64; n++, addr += 8) {
+            uint32_t w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+            uint32_t w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            switch (w0 >> 24) {
+                case G_VTX:
+                    return resolve(w1);
+                case 0xDE: // G_DL
+                    return in_interp_area(w1) ? 0 : resolve(w1);
+                case 0xDA: case 0xDF: // G_MTX, G_ENDDL
+                    return 0;
+                case 0xE4: // G_TEXRECT and its two halves
+                    addr += 16;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return 0;
+    }
+
     // hud: loaded under the HUD's 2D projection (the reticle): drawn where the
     // game put it each frame, not interpolated, as the crosshair lines through
     // it are fill rectangles RT64 doesn't move between frames (and shots go
@@ -303,6 +328,9 @@ namespace {
         };
         for (uint32_t i = 0; i < 5; i++) {
             set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
+        }
+        if (instance != 0 && object) {
+            snp::interp_set_object_model(instance, drawn_model(rdram, addr + 8));
         }
         if (instance != 0) {
             instance_tags.push_back({ entry, id, instance, object });
