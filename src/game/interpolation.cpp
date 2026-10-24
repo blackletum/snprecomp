@@ -60,7 +60,11 @@ namespace {
         float vel[3]; // since the time before
         uint32_t number;
     };
-    std::unordered_map<uint32_t, std::vector<Placed>> kinds;
+    struct Kind {
+        std::vector<Placed> placed;
+        uint32_t generation = 0; // when last drawn
+    };
+    std::unordered_map<uint32_t, Kind> kinds;
 
     float distance2(const float* a, const float* b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
@@ -149,10 +153,12 @@ namespace {
 }
 
 // The skeleton walkers' entry points: a new instance, its kind from the
-// skeleton and animation arguments.
-extern "C" void snp_interp_instance(uint32_t skeleton, uint32_t animation) {
+// skeleton argument. Not the animation: a character changing animations
+// (Saki starting and stopping a strafe) stays the same kind, and keeps its
+// number and IDs, so RT64 keeps interpolating it.
+extern "C" void snp_interp_instance(uint32_t skeleton, uint32_t) {
     current_instance++;
-    uint64_t h = ((uint64_t)skeleton << 32 | animation) * 0x9E3779B97F4A7C15ull;
+    uint64_t h = (uint64_t)skeleton * 0x9E3779B97F4A7C15ull;
     current_kind = (uint32_t)(h >> 32) | 1;
 }
 
@@ -269,7 +275,14 @@ namespace snp {
             }
         }
         for (auto& kind : by_kind) {
-            number_kind(kinds[kind.first], kind.second);
+            // Ones not drawn for a while are gone: they'd keep their numbers
+            // from the ones drawn now.
+            Kind& k = kinds[kind.first];
+            if (generation - k.generation > 2) {
+                k.placed.clear();
+            }
+            k.generation = generation;
+            number_kind(k.placed, kind.second);
         }
     }
 

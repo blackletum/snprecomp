@@ -124,9 +124,9 @@ text = "{ extern void snp_interp_matrix(uint32_t, uint32_t, uint32_t, uint32_t, 
 # Where a skeleton starts being drawn (func_80033128 and func_80033170 for
 # func_80032F2C, func_80033A40 and func_80033AC4 for func_80033758): enemies
 # of a kind in a group can share one pose, so each skeleton drawn is told
-# apart as an instance, of the kind its arguments ($a0, $a1: the skeleton and
-# its animation) say ($a0 at the matrix hooks above is the float matrix, its
-# translation where the instance is).
+# apart as an instance, of the kind its skeleton ($a0) says (not $a1, its
+# animation, which changes as a character moves). $a0 at the matrix hooks
+# above is the float matrix, its translation where the instance is.
 [[patches.hook]]
 func = "func_80033128"
 before_vram = 0x80033128
