@@ -181,11 +181,12 @@ before_vram = 0x800ABB4C
 text = "{ extern void snp_mouse_reticle(uint8_t*, uint32_t); snp_mouse_reticle(rdram, (uint32_t)ctx->r18); } // snp: mouse aim"
 
 # The stick's offsets ($s0, $s1), cut down to steps of 16 (so five speeds each
-# way and a dead zone of 16), are taken unstepped with Analog Aim on.
+# way and a dead zone of 16), are taken unstepped with Analog Aim on, and in
+# lock-on mode a mouse flick counts as a push of the stick (src/main/mouse.cpp).
 [[patches.hook]]
 func = "func_800AB924"
 before_vram = 0x800ABA14
-text = "{ extern int32_t snp_analog_aim(int32_t, int32_t); ctx->r16 = snp_analog_aim((int32_t)ctx->r16, MEM_B(0x5A86, S32(0X800D << 16))); ctx->r17 = snp_analog_aim((int32_t)ctx->r17, MEM_B(0x5A87, S32(0X800D << 16))); } // snp: analog aim"
+text = "{ extern void snp_aim_stick(uint8_t*, uint32_t, int32_t, int32_t, int32_t*, int32_t*); int32_t sx = (int32_t)ctx->r16, sy = (int32_t)ctx->r17; snp_aim_stick(rdram, (uint32_t)ctx->r18, MEM_B(0x5A86, S32(0X800D << 16)), MEM_B(0x5A87, S32(0X800D << 16)), &sx, &sy); ctx->r16 = sx; ctx->r17 = sy; } // snp: analog aim, mouse lock-on"
 
 # --- Enhancements and cheats -------------------------------------------------
 # func_800D42F8 copies the progress block into the save buffer before the game

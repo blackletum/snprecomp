@@ -89,6 +89,26 @@ namespace {
         return rdram[(addr ^ 3) & 0x1FFFFFFF]; // RDRAM is stored in 32-bit words
     }
 
+    // Lock-on mode (the aim mode's flag 4 at *0x800DA978): func_800AB924 calls
+    // func_800AB31C, which moves the reticle with the stick until the stick
+    // is pushed hard (a magnitude of 48 of 64), then locks onto the nearest
+    // target that way and steers the reticle onto it (the reticle's byte 2
+    // set) until it's lost. The reticle's flag 0x20 overrides it.
+    bool lock_on_mode(uint8_t* rdram, uint32_t reticle) {
+        uint32_t aim_mode = *reinterpret_cast<uint32_t*>(rdram + 0xDA978);
+        return !(read_byte(rdram, reticle) & 0x20) && (read_byte(rdram, aim_mode) & 4);
+    }
+
+    bool locked_on(uint8_t* rdram, uint32_t reticle) {
+        return lock_on_mode(rdram, reticle) && read_byte(rdram, reticle + 2) != 0;
+    }
+
+    // Window pixels per screen unit: the picture is 240 units high, or 320
+    // wide in a window narrower than 4:3 (Expand only widens it).
+    float screen_unit(int w, int h) {
+        return (w * 3 >= h * 4) ? h / 240.0f : w / 320.0f;
+    }
+
     // Stick Sensitivity: the reticle moves by its velocity times the
     // sensitivity (the game adds the velocity next; this adds the rest), so
     // the game's own speeds and stick handling stay as they are. Not while
@@ -100,9 +120,7 @@ namespace {
         if (sensitivity == 1.0f) {
             return;
         }
-        uint32_t aim_mode = *reinterpret_cast<uint32_t*>(rdram + 0xDA978); // *0x800DA978
-        bool lock_on = !(read_byte(rdram, reticle) & 0x20) && (read_byte(rdram, aim_mode) & 4);
-        if (lock_on) {
+        if (lock_on_mode(rdram, reticle)) {
             return;
         }
         for (uint32_t axis = 0; axis < 2; axis++) {
@@ -148,9 +166,12 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
         return;
     }
 
-    // Window pixels per screen unit: the picture is 240 units high, or 320
-    // wide in a window narrower than 4:3 (Expand only widens it).
-    float unit = (w * 3 >= h * 4) ? h / 240.0f : w / 320.0f;
+    // Locked on, the game steers the reticle; the mouse picks targets
+    // (snp_aim_stick).
+    if (locked_on(rdram, reticle)) {
+        return;
+    }
+    float unit = screen_unit(w, h);
     float x, y;
     if (aim == snp::config::MouseAim::Relative) {
         float scale = snp::config::get_mouse_sensitivity() / 50.0f / unit;
@@ -171,11 +192,36 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
     write_float(rdram, reticle + 0x5C, 0.0f);
 }
 
-// func_800AB924: the stick's offset as the game stepped it, and as read; with
-// Analog Aim on, the offset as read, within the same -64 .. 64.
-extern "C" int32_t snp_analog_aim(int32_t stepped, int32_t raw) {
-    if (!snp::config::get_option(snp::config::Option::AnalogAim)) {
-        return stepped;
+// func_800AB924, with the stick's offsets as read and as the game stepped them
+// (x, y): with Analog Aim on, the offsets as read, within the same -64 .. 64.
+// In lock-on mode with the stick at rest, a mouse flick (a fast move since
+// the last frame) is a full push of the stick its way, so the game locks onto
+// the next target in that direction, as it does for a flick of the stick.
+extern "C" void snp_aim_stick(uint8_t* rdram, uint32_t reticle, int32_t raw_x, int32_t raw_y, int32_t* x, int32_t* y) {
+    if (snp::config::get_option(snp::config::Option::AnalogAim)) {
+        *x = std::clamp(raw_x, -64, 64);
+        *y = std::clamp(raw_y, -64, 64);
     }
-    return std::clamp(raw, -64, 64);
+    if (snp::config::get_mouse_aim() == snp::config::MouseAim::Off || !lock_on_mode(rdram, reticle) || *x != 0 || *y != 0) {
+        return;
+    }
+    float dx, dy;
+    int w, h;
+    {
+        std::lock_guard lock(motion_mutex);
+        dx = relative_x;
+        dy = relative_y;
+        w = window_w;
+        h = window_h;
+    }
+    float unit = screen_unit(w, h);
+    dx /= unit;
+    dy /= unit;
+    constexpr float flick = 8.0f; // screen units in a frame
+    float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance < flick) {
+        return;
+    }
+    *x = (int32_t)std::lround(dx / distance * 64.0f);
+    *y = (int32_t)std::lround(-dy / distance * 64.0f);
 }
