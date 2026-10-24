@@ -147,15 +147,6 @@ namespace {
 
     uint32_t prefix_slot = 0;
 
-    // The motion blur draws the effect buffer (the last frame, kept at
-    // 0x8011B760) back over the new one, in 6-row strips. Above the original
-    // framerate that 30 fps picture lies over every in-between frame and
-    // trails the moving scene as a ghost (Saki in stage 2-2), so it's left out
-    // there. The latest texture image, to tell its strips.
-    constexpr uint32_t blur_buffer = 0x0011B760;
-    uint32_t texture_image = 0;
-    bool skip_blur = false;
-
     // all: clear every color image the frame draws to, not just the first.
     uint32_t clear_prefix(uint8_t* rdram, uint32_t dl, bool all) {
         uint32_t prefix = prefix_area + prefix_slot * prefix_bytes;
@@ -731,7 +722,6 @@ namespace {
                     break;
                 case 0xFD: { // G_SETTIMG: a read of an image not drawn to yet this frame?
                     uint32_t image = resolve(w1) & 0x1FFFFFFF;
-                    texture_image = image;
                     bool drawn = false;
                     for (uint32_t i = 0; i < cimg_count; i++) {
                         uint32_t start = cimgs[i][1] & 0x1FFFFFFF;
@@ -795,13 +785,6 @@ namespace {
                     }
                     break;
                 case 0xE4: // G_TEXRECT: two more words follow (RDPHALF_1, RDPHALF_2)
-                    if (skip_blur && texture_image >= blur_buffer && texture_image < blur_buffer + cimg_bytes) {
-                        for (uint32_t i = 0; i < 3; i++) {
-                            set_command(rdram, addr + i * 8, G_NOOP << 24, 0);
-                        }
-                        addr += 16;
-                        break;
-                    }
                     nudge_rect_start(rdram, addr);
                     if (widen && in_hud && !front_end) {
                         add_hud_rect(rdram, addr, w0, w1, 3);
@@ -859,8 +842,6 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     first_cimg_w0 = 0;
     cimg_count = 0;
     early_read_count = 0;
-    texture_image = 0;
-    skip_blur = snp::get_interpolating();
     seen_draw = false;
     starts_with_picture = false;
     effect_area_scissor = false;

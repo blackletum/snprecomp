@@ -21,9 +21,6 @@
   Sensitivity are off while the demo plays.
 - Jittering objects at framerates above 30, like the flying debris Saki rides
   in stage 2-2.
-- Ghosting at framerates above 30 when the game's motion blur is on (Saki
-  seemed to fly in from somewhere else in stage 2-2). The blur is a 30 fps
-  picture, so it's off above 30 fps and works as before at Original.
 
 ## [0.2.1 Beta] - 2026-10-24
 

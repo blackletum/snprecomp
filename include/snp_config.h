@@ -53,11 +53,6 @@ namespace snp::config {
 namespace snp {
     void set_widescreen_scale(float scale);
     float get_widescreen_scale();
-
-    // Whether RT64 draws frames in between the game's (a framerate above
-    // Original). Updated by the frontend every frame.
-    void set_interpolating(bool interpolating);
-    bool get_interpolating();
 }
 
 #endif

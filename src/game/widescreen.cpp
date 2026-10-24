@@ -9,15 +9,6 @@
 
 namespace {
     std::atomic<float> widescreen_scale{ 1.0f };
-    std::atomic<bool> interpolating{ false };
-}
-
-void snp::set_interpolating(bool value) {
-    interpolating.store(value, std::memory_order_relaxed);
-}
-
-bool snp::get_interpolating() {
-    return interpolating.load(std::memory_order_relaxed);
 }
 
 void snp::set_widescreen_scale(float scale) {

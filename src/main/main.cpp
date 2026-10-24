@@ -192,10 +192,6 @@ static void update_gfx(void*) {
         }
     }
     snp::set_widescreen_scale(widescreen_scale);
-
-    const ultramodern::renderer::GraphicsConfig& graphics = ultramodern::renderer::get_graphics_config();
-    snp::set_interpolating(graphics.rr_option == ultramodern::renderer::RefreshRate::Display ||
-        (graphics.rr_option == ultramodern::renderer::RefreshRate::Manual && graphics.rr_manual_value > 30));
 }
 
 // --- Audio ----------------------------------------------------------------
