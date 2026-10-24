@@ -4,8 +4,10 @@
 
 ### Fixed
 - Start Game didn't show after loading a ROM until the app was restarted.
-- Flickering, red or smeared bits of background at the sides in widescreen
-  (gaps in the skyline in the Radan fight). They're black now.
+- Flickering, red or smeared bits of background at the sides in widescreen.
+  Places with no scenery past the 4:3 view are black now.
+- The sky's horizon glow in the Radan fight stopped at the 4:3 edge in
+  widescreen.
 
 ### Changed
 - The translated ROM's Start Game is labeled Translation, not English (Spanish

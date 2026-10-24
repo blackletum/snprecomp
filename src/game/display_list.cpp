@@ -82,9 +82,10 @@ namespace {
     constexpr uint32_t quad_bytes = 4 * 16;
     uint32_t quad_slot = 0;
 
-    // Fades and tints are a 4-vertex quad over the screen (-160..160 by
-    // -120..120) drawn with the 2D projection, which RT64 keeps at 4:3. In
-    // Expand the vertex load points at a copy four times as wide.
+    // Fades, tints and backdrop bands (the horizon glow behind the Radan
+    // fight's skyline) are a 4-vertex quad across the screen's full width
+    // (x -160..160, any height) drawn with the 2D projection, which RT64 keeps
+    // at 4:3. In Expand the vertex load points at a copy four times as wide.
     void widen_screen_quad(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
         if (((w0 >> 12) & 0xFF) != 4) {
             return;
@@ -93,7 +94,7 @@ namespace {
         for (uint32_t i = 0; i < 4; i++) {
             uint32_t xy_word = (uint32_t)MEM_W(i * 16, (gpr)(int32_t)src);
             int16_t x = (int16_t)(xy_word >> 16), y = (int16_t)xy_word;
-            if ((x != 160 && x != -160) || (y != 120 && y != -120)) {
+            if ((x != 160 && x != -160) || y > 120 || y < -120) {
                 return;
             }
         }
