@@ -24,8 +24,8 @@
 - Jittering objects at framerates above 30, like the flying debris Saki rides
   in stage 2-2.
 - Saki snapping into place over and over when strafing at framerates above 30.
-- Spinning parts flickering between each other at framerates above 30 (in
-  the intro).
+- Crates and other parts of the intro's scenery flickering between each other
+  at framerates above 30.
 - A band along the top and bottom of the screen in widescreen while the
   motion blur is on, not blurred with the rest of the picture.
 - The flashing box around the LIFE gauge in the tutorial came apart in
