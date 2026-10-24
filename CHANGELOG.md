@@ -16,6 +16,9 @@
   framerates above 30. The HUD isn't interpolated anymore.
 - Black patches in the bottom corners in widescreen when aiming to the far
   left or right in stage 1. The ground's colour reaches the screen's edges now.
+- The mouse moved the reticle during the How to Play demo on the title screen,
+  so the demo went off script and Saki died. Mouse Aim, Analog Aim and Stick
+  Sensitivity are off while the demo plays.
 
 ## [0.2.1 Beta] - 2026-10-24
 

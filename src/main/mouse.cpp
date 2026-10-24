@@ -99,6 +99,13 @@ namespace {
         return !(read_byte(rdram, reticle) & 0x20) && (read_byte(rdram, aim_mode) & 4);
     }
 
+    // The attract mode's How to Play plays back recorded input (func_800A8638
+    // reads it while this byte is set): the reticle is left to the recording,
+    // or the demo goes off its script.
+    bool demo_playing(uint8_t* rdram) {
+        return read_byte(rdram, 0x800D4F00) != 0;
+    }
+
     bool locked_on(uint8_t* rdram, uint32_t reticle) {
         return lock_on_mode(rdram, reticle) && read_byte(rdram, reticle + 2) != 0;
     }
@@ -142,7 +149,9 @@ void snp::mouse::init() {
 extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
     snp::config::MouseAim aim = snp::config::get_mouse_aim();
     if (aim == snp::config::MouseAim::Off) {
-        apply_stick_sensitivity(rdram, reticle);
+        if (!demo_playing(rdram)) {
+            apply_stick_sensitivity(rdram, reticle);
+        }
         return;
     }
 
@@ -160,6 +169,9 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
         pointer_moved = false;
         w = window_w;
         h = window_h;
+    }
+    if (demo_playing(rdram)) {
+        return;
     }
     if (!moved) {
         apply_stick_sensitivity(rdram, reticle);
@@ -198,6 +210,9 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
 // the last frame) is a full push of the stick its way, so the game locks onto
 // the next target in that direction, as it does for a flick of the stick.
 extern "C" void snp_aim_stick(uint8_t* rdram, uint32_t reticle, int32_t raw_x, int32_t raw_y, int32_t* x, int32_t* y) {
+    if (demo_playing(rdram)) {
+        return;
+    }
     if (snp::config::get_option(snp::config::Option::AnalogAim)) {
         *x = std::clamp(raw_x, -64, 64);
         *y = std::clamp(raw_y, -64, 64);
