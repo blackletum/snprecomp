@@ -14,6 +14,8 @@
   an enemy to lock on, and flick again to switch targets.
 - The reticle drifted off its crosshair lines and stuttered as it appeared at
   framerates above 30. The HUD isn't interpolated anymore.
+- Black patches in the bottom corners in widescreen when aiming to the far
+  left or right in stage 1. The ground's colour reaches the screen's edges now.
 
 ## [0.2.1 Beta] - 2026-10-24
 

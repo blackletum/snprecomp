@@ -43,6 +43,7 @@ namespace {
     constexpr uint32_t inset_scissor_w1 = xy(308, 231);
     constexpr uint32_t full_scissor_w0 = (G_SETSCISSOR << 24) | xy(0, 0);
     constexpr uint32_t full_scissor_w1 = xy(320, 240);
+    constexpr uint32_t ground_band_bottom = 220 * 4;
 
     // The border's four fill rectangles: {w0, w1}.
     constexpr uint32_t border[4][2] = {
@@ -675,6 +676,13 @@ namespace {
                     if ((w0 & 0xFFF) == 231 * 4 && (w1 & 0xFFF) == 8 * 4) {
                         w0 = (w0 & 0xFFFFF000) | (239 * 4);
                         w1 = (w1 & 0xFFFFF000) | 0;
+                    }
+                    // A band reaching near the bottom is the ground's base
+                    // colour (stage 1's grass), drawn under the ground mesh;
+                    // the mesh doesn't reach the bottom corners of a wider
+                    // view, which were left black: to the bottom row.
+                    else if ((w0 & 0xFFF) >= ground_band_bottom) {
+                        w0 = (w0 & 0xFFFFF000) | (239 * 4);
                     }
                     set_command(rdram, addr, w0, w1);
                 }
