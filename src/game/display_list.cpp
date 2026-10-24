@@ -710,12 +710,18 @@ namespace {
                         w0 = (w0 & 0xFFFFF000) | (239 * 4);
                         w1 = (w1 & 0xFFFFF000) | 0;
                     }
-                    // A band reaching near the bottom is the ground's base
-                    // colour (stage 1's grass), drawn under the ground mesh;
-                    // the mesh doesn't reach the bottom corners of a wider
-                    // view, which were left black: to the bottom row.
-                    else if ((w0 & 0xFFF) >= ground_band_bottom) {
-                        w0 = (w0 & 0xFFFFF000) | (239 * 4);
+                    // A band from the inset's top or reaching near the bottom
+                    // is a backdrop colour drawn under the scenery (stage 1's
+                    // grass, 2-2's sea); the scenery doesn't reach the corners
+                    // of a wider view, and the rows the border covered were
+                    // left black there: to the top or bottom row.
+                    else {
+                        if ((w1 & 0xFFF) == 8 * 4) {
+                            w1 = (w1 & 0xFFFFF000) | 0;
+                        }
+                        if ((w0 & 0xFFF) >= ground_band_bottom) {
+                            w0 = (w0 & 0xFFFFF000) | (239 * 4);
+                        }
                     }
                     set_command(rdram, addr, w0, w1);
                 }
