@@ -254,6 +254,14 @@ namespace {
             (automatic << 24); // look-at
     }
 
+    // Every component skipped: the matrix as the game set it, every frame.
+    uint32_t still_matrix_params() {
+        constexpr uint32_t automatic = 2;
+        return (1u << 2) |        // decompose
+            (1u << 17) |          // order: auto
+            (automatic << 24);    // look-at
+    }
+
     // Matrix loads this frame that belong to an instance (a skeleton or an
     // object). Their IDs get the instance's number after the walk.
     struct InstanceTag {
@@ -264,18 +272,26 @@ namespace {
     };
     std::vector<InstanceTag> instance_tags;
 
-    void tag_matrix(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
+    // hud: loaded under the HUD's 2D projection (the reticle): drawn where the
+    // game put it each frame, not interpolated, as the crosshair lines through
+    // it are fill rectangles RT64 doesn't move between frames (and shots go
+    // where the game has it).
+    void tag_matrix(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1, bool hud) {
         if (interp_entry >= interp_entries) {
             return;
         }
         uint32_t instance = 0;
         bool object = false;
         uint32_t id = snp::interp_matrix_id(resolve(w1), instance, object);
+        if (hud) {
+            id = G_EX_ID_AUTO;
+            instance = 0;
+        }
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
             { interp_entry == 0 ? 0xE0525464u : G_NOOP << 24, interp_entry == 0 ? 0x10000064u : 0u }, // gEXEnable, once a frame
             { 0x6400000C, id }, // gEXMatrixGroup
-            { matrix_group_params(id != G_EX_ID_AUTO && !object, false), 0 },
+            { hud ? still_matrix_params() : matrix_group_params(id != G_EX_ID_AUTO && !object, false), 0 },
             { w0, w1 }, // the game's matrix load
             { 0xDF000000, 0 },
         };
@@ -772,7 +788,7 @@ namespace {
                         in_hud = (w1 == hud_projection);
                     }
                     else { // modelview
-                        tag_matrix(rdram, addr, w0, w1);
+                        tag_matrix(rdram, addr, w0, w1, in_hud);
                     }
                     break;
                 default:

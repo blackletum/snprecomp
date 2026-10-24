@@ -12,6 +12,8 @@
   (from 0.2.1). Only the strips beside the 4:3 picture are cleared now.
 - Lock-on didn't work with mouse aim. In lock-on mode, flick the mouse toward
   an enemy to lock on, and flick again to switch targets.
+- The reticle drifted off its crosshair lines and stuttered as it appeared at
+  framerates above 30. The HUD isn't interpolated anymore.
 
 ## [0.2.1 Beta] - 2026-10-24
 
