@@ -231,12 +231,17 @@ namespace {
 
     // gEXMatrixGroup parameters. Skeleton (limb) matrices always interpolate
     // and are blended entry by entry: the game's bone matrices are skewed, and
-    // decomposing them warped limbs on in-between frames. Everything else
-    // keeps RT64's automatic settings. A numbered ID is unique in the frame and
-    // is paired directly (G_EX_ORDER_LINEAR), otherwise by closeness.
+    // decomposing them warped limbs on in-between frames. A numbered object
+    // (one told apart from the others of its kind) always interpolates too:
+    // RT64's automatic position stops interpolating on any frame where the
+    // movement reverses or jumps tenfold, so things the game shakes (the
+    // flying debris in stage 2-2) flipped between smoothed and snapped
+    // frames. Everything else keeps RT64's automatic settings. A numbered ID
+    // is unique in the frame and is paired directly (G_EX_ORDER_LINEAR),
+    // otherwise by closeness.
     uint32_t matrix_group_params(bool skeleton, bool numbered) {
         constexpr uint32_t interpolate = 1, automatic = 2;
-        const uint32_t motion = skeleton ? interpolate : automatic;
+        const uint32_t motion = (skeleton || numbered) ? interpolate : automatic;
         const uint32_t order = numbered ? 0u : 1u;
         return (0u << 0) |   // no push
             (0u << 1) |      // modelview

@@ -19,6 +19,8 @@
 - The mouse moved the reticle during the How to Play demo on the title screen,
   so the demo went off script and Saki died. Mouse Aim, Analog Aim and Stick
   Sensitivity are off while the demo plays.
+- Jittering objects at framerates above 30, like the flying debris Saki rides
+  in stage 2-2.
 
 ## [0.2.1 Beta] - 2026-10-24
 
