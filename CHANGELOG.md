@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Stick Sensitivity on the Controls tab, how fast the stick moves the reticle.
+- 8X MSAA, greyed out if your GPU doesn't support it.
+
 ## [0.2.1 Beta] - 2026-10-24
 
 ### Fixed

@@ -142,13 +142,28 @@ void snp::config::add_extras_tabs() {
         "for finer aiming.",
         false
     );
+    enhancements.add_number_option(
+        "stick_sensitivity",
+        "Stick Sensitivity",
+        "How fast the stick moves the reticle. 100% is the game's own speed. "
+        "Works best with Analog Aim on.",
+        50.0, 200.0, 5.0, 0, true, 100.0
+    );
     // On the Controls tab instead (lib-patches/RecompFrontend/0002).
     recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
+    recompui::config::show_option_on_controls_tab(enhancements_id, "stick_sensitivity");
 
     recomp::config::Config& cheats = recompui::config::create_config_tab("Cheats", cheats_id, false);
     cheats.add_bool_option("infinite_health", "Infinite Health", "", false);
     cheats.add_bool_option("infinite_time", "Infinite Time", "", false);
     cheats.add_bool_option("infinite_continues", "Infinite Continues", "", false);
+}
+
+float snp::config::get_stick_sensitivity() {
+    if (!tabs_added) {
+        return 100.0f;
+    }
+    return (float)std::get<double>(recompui::config::get_config(enhancements_id).get_option_value("stick_sensitivity"));
 }
 
 bool snp::config::get_option(Option option) {
