@@ -663,10 +663,72 @@ namespace {
         }
     }
 
+    // A box drawn as bars around a HUD element (the tutorial's flashing
+    // frame, zooming in onto the LIFE gauge): two horizontal bars and two
+    // vertical ones meeting at their ends, starting in the top band. Too big
+    // while it zooms to be one element, each bar was placed on its own and
+    // the box came apart. The whole box is moved as one, by part of its
+    // side's anchoring shift: none while it's screen-sized and in the middle,
+    // all of it once it's down to the element's size at the side (64 rows),
+    // so it ends around the element without a jump on the way.
+    // framed: set for the run's rectangles that are the box's. False if none.
+    bool place_hud_box(uint8_t* rdram, uint32_t n, bool* framed) {
+        constexpr uint32_t thin = 6 * 4, long_bar = 16 * 4, slack = 4 * 4;
+        auto horizontal = [&](const HudRect& r) { return r.lry - r.uly <= thin && r.lrx - r.ulx >= long_bar; };
+        auto vertical = [&](const HudRect& r) { return r.lrx - r.ulx <= thin && r.lry - r.uly >= long_bar; };
+        auto near = [&](uint32_t a, uint32_t b) { return (a > b ? a - b : b - a) <= slack; };
+        uint32_t L = 0, T = 0, R = 0, B = 0;
+        bool found = false;
+        for (uint32_t i = 0; i < n; i++) {
+            for (uint32_t j = 0; j < n; j++) {
+                const HudRect& top = fill_run[i];
+                const HudRect& bottom = fill_run[j];
+                if (!horizontal(top) || !horizontal(bottom) || bottom.uly < top.lry + long_bar ||
+                    !near(top.ulx, bottom.ulx) || !near(top.lrx, bottom.lrx) || top.uly >= hud_band_bottom) {
+                    continue;
+                }
+                uint32_t l = std::min(top.ulx, bottom.ulx), r = std::max(top.lrx, bottom.lrx);
+                bool left_side = false, right_side = false;
+                for (uint32_t k = 0; k < n; k++) {
+                    const HudRect& v = fill_run[k];
+                    if (vertical(v) && v.uly <= top.uly + thin && v.lry + thin >= bottom.lry) {
+                        left_side = left_side || near(v.ulx, l);
+                        right_side = right_side || near(v.lrx, r);
+                    }
+                }
+                if (left_side && right_side && (!found || bottom.lry - top.uly > B - T)) {
+                    found = true;
+                    L = l;
+                    R = r;
+                    T = top.uly;
+                    B = bottom.lry;
+                }
+            }
+        }
+        if (!found) {
+            return false;
+        }
+        const float extra = 160.0f * (snp::get_widescreen_scale() - 1.0f) * 4.0f + hud_margin;
+        const float size = std::clamp((240.0f * 4 - (B - T)) / ((240.0f - 64.0f) * 4), 0.0f, 1.0f);
+        const float side = std::clamp(((L + R) / 2.0f - 160.0f * 4) / (64.0f * 4), -1.0f, 1.0f);
+        const int32_t offset = (int32_t)std::lround(extra * size * side);
+        for (uint32_t i = 0; i < n; i++) {
+            const HudRect& r = fill_run[i];
+            framed[i] = r.ulx + slack >= L && r.lrx <= R + slack && r.uly + slack >= T && r.lry <= B + slack &&
+                (r.lry - r.uly <= thin || r.lrx - r.ulx <= thin);
+            if (framed[i]) {
+                anchor_rect(rdram, r.addr, r.words, origin_none, offset);
+            }
+        }
+        return true;
+    }
+
     void end_fill_run(uint8_t* rdram) {
         uint32_t n = fill_run_count;
         fill_run_count = 0;
         uint32_t shape[max_fill_run];
+        bool framed[max_fill_run] = {};
+        place_hud_box(rdram, n, framed);
         for (uint32_t i = 0; i < n; i++) {
             shape[i] = i;
         }
@@ -681,16 +743,18 @@ namespace {
             for (uint32_t j = i + 1; j < n; j++) {
                 const HudRect& a = fill_run[i];
                 const HudRect& b = fill_run[j];
-                if (joins(a) && joins(b) && a.ulx <= b.lrx + touch && b.ulx <= a.lrx + touch && a.uly <= b.lry + touch && b.uly <= a.lry + touch) {
+                if (!framed[i] && !framed[j] && joins(a) && joins(b) && a.ulx <= b.lrx + touch && b.ulx <= a.lrx + touch && a.uly <= b.lry + touch && b.uly <= a.lry + touch) {
                     shape[find(i)] = find(j);
                 }
             }
         }
         for (uint32_t i = 0; i < n; i++) {
-            place_crosshair_line(rdram, fill_run[i]);
+            if (!framed[i]) {
+                place_crosshair_line(rdram, fill_run[i]);
+            }
         }
         for (uint32_t i = 0; i < n; i++) {
-            if (find(i) != i) {
+            if (framed[i] || find(i) != i) {
                 continue;
             }
             uint32_t ulx = 0xFFF, uly = 0xFFF, lrx = 0, lry = 0;
