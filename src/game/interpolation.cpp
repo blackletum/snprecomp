@@ -30,6 +30,10 @@ namespace {
     };
     std::unordered_map<uint32_t, Instance> instances; // serial -> instance
     uint32_t current_instance = 0;
+    // Matrices built so far for the current instance, while one is being
+    // drawn (a skeleton started by the hooks).
+    uint32_t instance_matrices = 0;
+    bool in_instance = false;
     uint32_t current_kind = 0;
     constexpr uint32_t object_serials = 0x80000000; // objects' serials, apart from skeletons'
     uint32_t object_serial = 0;
@@ -158,6 +162,8 @@ namespace {
 // number and IDs, so RT64 keeps interpolating it.
 extern "C" void snp_interp_instance(uint32_t skeleton, uint32_t) {
     current_instance++;
+    instance_matrices = 0;
+    in_instance = true;
     uint64_t h = (uint64_t)skeleton * 0x9E3779B97F4A7C15ull;
     current_kind = (uint32_t)(h >> 32) | 1;
 }
@@ -179,7 +185,12 @@ extern "C" void snp_interp_matrix(uint32_t mtx, uint32_t mesh, uint32_t x, uint3
     if (current_joint == 0) {
         return;
     }
-    uint64_t h = ((uint64_t)current_joint << 32 | mesh) * 0x9E3779B97F4A7C15ull;
+    // A joint's key: its place in the skeleton's drawing order and its mesh.
+    // Not the joint's pose and channel addresses: they change with the
+    // animation (Saki's whenever she starts or stops strafing), and new IDs
+    // left RT64 nothing to pair, so she snapped into place each time.
+    uint32_t joint = in_instance ? instance_matrices++ : current_joint;
+    uint64_t h = ((uint64_t)joint << 32 | mesh) * 0x9E3779B97F4A7C15ull;
     uint32_t key = (uint32_t)(h >> 33);
     Instance& inst = instances[current_instance];
     if (inst.key == 0) {
@@ -230,6 +241,7 @@ namespace snp {
     // reused, so older entries belong to some other matrix now.
     void interp_new_frame() {
         generation++;
+        in_instance = false;
         if (matrices.size() > 4096) {
             for (auto it = matrices.begin(); it != matrices.end();) {
                 it = (generation - it->second.generation > 3) ? matrices.erase(it) : std::next(it);
