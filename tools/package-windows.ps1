@@ -6,7 +6,7 @@
 # itself (a Developer PowerShell often defaults to x86, which can't link x64):
 #
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-#   .\tools\package-windows.ps1 -Version 0.2.0
+#   .\tools\package-windows.ps1 -Version 0.2.1
 #
 # Output: dist\SnPRecompiled-<version>-windows.zip containing the exe,
 # its DLLs, the assets folder (loaded relative to the working directory, which

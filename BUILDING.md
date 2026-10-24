@@ -100,7 +100,7 @@ up (so `build/SnPRecompiled` also starts on its own, e.g. by double-clicking). `
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\tools\package-windows.ps1 -Version 0.2.0
+.\tools\package-windows.ps1 -Version 0.2.1
 ```
 
 Runs from any PowerShell (it sets up Visual Studio's x64 environment
@@ -111,7 +111,7 @@ its DLLs, `assets\`, README and licenses. The steps above must be done first.
 **Linux** (experimental):
 
 ```bash
-tools/package-linux.sh 0.2.0
+tools/package-linux.sh 0.2.1
 ```
 
 Builds Release in `build-release-linux/` and writes

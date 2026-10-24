@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.1 Beta] - 2026-10-24
 
 ### Fixed
 - Start Game didn't show after loading a ROM until the app was restarted.
