@@ -150,7 +150,6 @@ void snp::config::add_extras_tabs() {
         "Works best with Analog Aim on.",
         50.0, 200.0, 5.0, 0, true, 100.0
     );
-    snp::config::add_spanish_voices_option(enhancements);
     // On the Controls tab instead (lib-patches/RecompFrontend/0002).
     recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
     recompui::config::show_option_on_controls_tab(enhancements_id, "stick_sensitivity");

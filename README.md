@@ -39,7 +39,7 @@ Other dumps work too: `.z64`, `.n64` and `.v64`, and other translation
 patches as long as they only change text and graphics.
 
 The Spanish translation changes the game's code, so it doesn't run, but its
-Spanish voices can be used: on the Enhancements tab, press **Load Spanish ROM**,
+Spanish voices can be used: on the Sound tab, press **Load Spanish ROM**,
 choose the Spanish dub (the Japanese ROM patched with
 `SAPESP.10.DOBLADO.xdelta`) and turn on **Spanish Voices**. The text stays the
 loaded ROM's.

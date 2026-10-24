@@ -1,4 +1,4 @@
-// Spanish Voices on the Enhancements tab: the Spanish dub's voices with the
+// Spanish Voices on the Sound tab: the Spanish dub's voices with the
 // loaded ROM's text.
 //
 // The Spanish translation (IlDucci, PacoChan, Zoinkity and others, 2015)
@@ -25,7 +25,6 @@
 #include "util/file.h"
 
 namespace {
-    const std::string enhancements_id = "enhancements";
     const std::string option_id = "spanish_voices";
     bool option_added = false;
 
@@ -163,13 +162,13 @@ namespace {
 
     bool enabled() {
         return option_added &&
-            std::get<bool>(recompui::config::get_config(enhancements_id).get_option_value(option_id));
+            std::get<bool>(recompui::config::get_sound_config().get_option_value(option_id));
     }
 }
 
-void snp::config::add_spanish_voices_option(recomp::config::Config& enhancements) {
+void snp::config::add_spanish_voices_option(recomp::config::Config& sound) {
     option_added = true;
-    enhancements.add_bool_option(
+    sound.add_bool_option(
         option_id,
         "Spanish Voices",
         "Plays the Spanish dub's voices (IlDucci and the Spanish translation team, 2015), with the "
@@ -186,7 +185,7 @@ void snp::config::add_spanish_voices_option(recomp::config::Config& enhancements
 
 void snp::config::lock_spanish_voices_option() {
     if (option_added) {
-        recompui::config::get_config(enhancements_id).update_option_disabled(option_id, true);
+        recompui::config::get_sound_config().update_option_disabled(option_id, true);
     }
 }
 

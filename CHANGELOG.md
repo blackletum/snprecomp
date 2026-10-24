@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- Spanish Voices on the Enhancements tab: the Spanish dub's voices with the
+- Spanish Voices on the Sound tab: the Spanish dub's voices with the
   English (or Japanese) text. Load Spanish ROM takes the dubbed Spanish ROM
   once. The Spanish translation itself can't run, it changes the game's code.
 - Stick Sensitivity on the Controls tab, how fast the stick moves the reticle.

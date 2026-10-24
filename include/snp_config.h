@@ -36,8 +36,8 @@ namespace snp::config {
     // The Enhancements and Cheats tabs (src/main/extras_config.cpp). Call
     // before recompui::config::finalize().
     void add_extras_tabs();
-    // Spanish Voices on the Enhancements tab (src/main/spanish_voices.cpp).
-    void add_spanish_voices_option(recomp::config::Config& enhancements);
+    // Spanish Voices on the Sound tab (src/main/spanish_voices.cpp).
+    void add_spanish_voices_option(recomp::config::Config& sound);
     void lock_spanish_voices_option();
 
     enum class Option {
