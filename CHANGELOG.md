@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.3 Beta] - 2026-10-25
 
 ### Fixed
 - Linux: Load ROM could crash before the file picker opened. The picker is now
