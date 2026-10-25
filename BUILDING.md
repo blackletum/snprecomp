@@ -34,7 +34,7 @@ the same commits as btgarecomp, and `lib-patches/` carries its RT64 fixes.
 ### Linux (Ubuntu/Debian)
 
 ```bash
-sudo apt-get install cmake ninja-build libsdl2-dev libgtk-3-dev libvulkan-dev lld llvm clang
+sudo apt-get install cmake ninja-build libsdl2-dev libdbus-1-dev libvulkan-dev lld llvm clang
 ```
 
 ## 3. Put the ROM in place
@@ -117,7 +117,8 @@ tools/package-linux.sh 0.2.1
 Builds Release in `build-release-linux/` and writes
 `dist/SnPRecompiled-<version>-linux-x86_64.tar.gz`: the binary, a
 `SnPRecompiled.sh` launcher that runs it from its own folder, the assets,
-README and licenses. SDL2, GTK 3, FreeType and Vulkan come from the system.
+README and licenses. SDL2, D-Bus, FreeType and Vulkan come from the system, and
+the ROM picker is the desktop's own (xdg-desktop-portal).
 
 ## Regenerating the symbol file
 

@@ -85,6 +85,13 @@ snp_apply_lib_patches(rt64)
 # plume (RT64's rendering layer) is a submodule inside rt64.
 snp_apply_lib_patches(plume lib/rt64/src/contrib/plume)
 
+# Linux: the ROM picker is the desktop's own, through xdg-desktop-portal (D-Bus),
+# not GTK's. GTK may only be used from the thread that started it, and the
+# picker opens from the UI thread: it crashed inside GTK as it opened, now and
+# then (issues #5 and #9).
+if(UNIX AND NOT APPLE)
+    set(NFD_PORTAL ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/rt64 ${CMAKE_BINARY_DIR}/rt64)
 
 set(BUILD_SHARED_LIBS OFF)

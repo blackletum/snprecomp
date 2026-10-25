@@ -1,0 +1,66 @@
+diff --git a/recompui/src/util/file.cpp b/recompui/src/util/file.cpp
+index 140adca..229b391 100644
+--- a/recompui/src/util/file.cpp
++++ b/recompui/src/util/file.cpp
+@@ -20,9 +20,34 @@
+ #endif
+ 
+ namespace recompui {
++    // NFD is started on the thread that opens the dialog (the UI thread), for
++    // each dialog, as NFD asks. On Linux it's the desktop's portal over D-Bus:
++    // without a session bus or portal it fails, which is shown instead of
++    // crashing on the connection it couldn't open.
++    static bool start_file_dialogs() {
++        if (NFD_Init() != NFD_OKAY) {
++            const char* error = NFD_GetError();
++            file::show_error_message_box("Couldn't open the file picker", error != nullptr ? error : "");
++            return false;
++        }
++        return true;
++    }
++
++    static void report_file_dialog_error(nfdresult_t result) {
++        if (result == NFD_ERROR) {
++            const char* error = NFD_GetError();
++            file::show_error_message_box("Couldn't open the file picker", error != nullptr ? error : "");
++        }
++    }
++
+     static void perform_file_dialog_operation(const std::function<void(bool, const std::filesystem::path&)>& callback) {
++        if (!start_file_dialogs()) {
++            callback(false, {});
++            return;
++        }
+         nfdnchar_t* native_path = nullptr;
+         nfdresult_t result = NFD_OpenDialogN(&native_path, nullptr, 0, nullptr);
++        report_file_dialog_error(result);
+ 
+         bool success = (result == NFD_OKAY);
+         std::filesystem::path path;
+@@ -32,12 +57,18 @@ namespace recompui {
+             NFD_FreePathN(native_path);
+         }
+ 
++        NFD_Quit();
+         callback(success, path);
+     }
+ 
+     static void perform_file_dialog_operation_multiple(const std::function<void(bool, const std::list<std::filesystem::path>&)>& callback) {
++        if (!start_file_dialogs()) {
++            callback(false, {});
++            return;
++        }
+         const nfdpathset_t* native_paths = nullptr;
+         nfdresult_t result = NFD_OpenDialogMultipleN(&native_paths, nullptr, 0, nullptr);
++        report_file_dialog_error(result);
+ 
+         bool success = (result == NFD_OKAY);
+         std::list<std::filesystem::path> paths;
+@@ -55,6 +86,7 @@ namespace recompui {
+             NFD_PathSet_Free(native_paths);
+         }
+ 
++        NFD_Quit();
+         callback(success, paths);
+     }
+ 

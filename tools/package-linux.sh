@@ -10,8 +10,9 @@
 # Output: dist/SnPRecompiled-<version>-linux-x86_64.tar.gz with the
 # binary, a launcher script that runs it from its own folder (assets/ is
 # loaded relative to the working directory), assets, README, license and the
-# third-party license notices. The system provides SDL2, GTK 3, FreeType and
-# Vulkan. Uses its own build folder (build-release-linux, or $BUILD_DIR).
+# third-party license notices. The system provides SDL2, D-Bus, FreeType and
+# Vulkan, and the desktop's file picker (xdg-desktop-portal). Uses its own
+# build folder (build-release-linux, or $BUILD_DIR).
 set -euo pipefail
 
 version="${1:-dev}"

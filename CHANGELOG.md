@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Linux: Load ROM could crash before the file picker opened. The picker is now
+  the desktop's own (xdg-desktop-portal), not GTK's.
+
 ## [0.2.2 Beta] - 2026-10-24
 
 ### Added

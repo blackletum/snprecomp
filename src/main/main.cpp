@@ -24,7 +24,6 @@
 #include <chrono>
 #include <thread>
 
-#include "nfd.h"
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
@@ -461,13 +460,6 @@ int main(int argc, char** argv) {
     register_snp_overlays();
     snp::apply_theme();
 
-#ifdef __linux__
-    // The file picker is GTK's, opened from the UI thread. On a Wayland
-    // desktop GTK picks Wayland while SDL's window is on XWayland, and the
-    // picker crashed as it opened (Bazzite): GTK on X11 too, unless set.
-    setenv("GDK_BACKEND", "x11", 0);
-#endif
-    NFD_Init();
 
     recompui::programconfig::set_program_name(program_name);
     recompui::programconfig::set_program_id(program_id);
@@ -582,7 +574,6 @@ int main(int argc, char** argv) {
         .message_queue_control = {}, // the runtime's defaults
     });
 
-    NFD_Quit();
 
     // The game's threads are never joined by the runtime and may still be
     // blocked on (or spinning over) runtime state when recomp::start
