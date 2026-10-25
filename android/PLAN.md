@@ -1,7 +1,7 @@
 # Android port: plan
 
-Status: step 1 (port the BattleTanx: Global Assault Android work) done in the sandbox; next is
-the owner's first build and run on the Retroid Pocket 6 (step 2).
+Status: steps 1 and 2 done: the game builds from Android Studio and plays well on the owner's
+Retroid Pocket 6 (first run, 2026-10-25). Next: the checks under "Watch" (step 3), then touch.
 Written 2026-10-25 so a new session can start without re-deciding anything.
 
 ## Decisions (agreed with the project owner)
@@ -149,3 +149,11 @@ So unlike BTGA's overlay, the controls don't hide while a gamepad is in use.
   rebuilt both. The stamp now records the patched working tree's Git tree ID and compares
   that instead. Checked: unchanged trees are left alone; a file a patch changed or added,
   undone by hand, gets that submodule's patches applied again.
+
+### Step 2 (2026-10-25) -- first device run
+
+Owner built from the second checkout (PowerShell setup as in android/README.md) and ran it
+from Android Studio on the Retroid Pocket 6: boots, ROM loads through the launcher, and it
+"plays really well thus far" with the controller. Not yet gone through: the checks under
+"Watch" and the SnP-specific features table.
+
