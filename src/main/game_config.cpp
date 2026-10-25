@@ -1,5 +1,8 @@
-// Game-specific options on the General tab. See include/snp_config.h.
+// Game-specific options on the General tab, and on Android the Touch Controls
+// tab. See include/snp_config.h.
 #include "snp_config.h"
+#include "snp_android.h"
+#include "snp_mouse.h"
 
 #include "recompui/config.h"
 
@@ -87,3 +90,98 @@ bool snp::config::get_rumble_pak() {
     }
     return std::get<bool>(recompui::config::get_general_config().get_option_value(rumble_pak_id));
 }
+
+#if defined(__ANDROID__)
+// Touch aiming (src/main/mouse.cpp) and the on-screen buttons (src/android/touch_controls.cpp),
+// which read these through the change callbacks (also run when the saved settings load).
+void snp::config::add_touch_options(recomp::config::Config& touch) {
+    static const std::string aim_id = "touch_aim";
+    static const std::string speed_id = "touch_aim_speed";
+
+    touch.add_enum_option(
+        aim_id,
+        "Touch Aim",
+        "How a finger on the screen moves the reticle. It works together with a controller, and "
+        "whether or not the on-screen buttons show."
+        "<br/><br/>"
+        "<b>Point</b>: the reticle goes where you touch, like a light gun."
+        "<br/>"
+        "<b>Drag</b>: dragging a finger anywhere moves the reticle, like a trackpad, by Touch Aim "
+        "Speed."
+        "<br/><br/>"
+        "In lock-on mode a swipe locks onto the next target that way.",
+        std::vector<recomp::config::ConfigOptionEnumOption>{
+            {(uint32_t)snp::mouse::TouchAim::Off, "Off", "Off"},
+            {(uint32_t)snp::mouse::TouchAim::Point, "Point", "Point"},
+            {(uint32_t)snp::mouse::TouchAim::Drag, "Drag", "Drag"},
+        },
+        snp::mouse::TouchAim::Point
+    );
+    touch.add_number_option(
+        speed_id,
+        "Touch Aim Speed",
+        "How far the reticle moves for a drag with Touch Aim on Drag. At 100% it moves with the "
+        "finger.",
+        25, 300, 5, 0, true, 100
+    );
+    touch.add_option_hidden_dependency(speed_id, aim_id, snp::mouse::TouchAim::Off, snp::mouse::TouchAim::Point);
+    touch.add_option_change_callback(aim_id, [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::mouse::set_touch_aim((snp::mouse::TouchAim)std::get<uint32_t>(value));
+    });
+    touch.add_option_change_callback(speed_id, [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::mouse::set_touch_aim_speed((float)std::get<double>(value));
+    });
+
+    touch.add_bool_option(
+        "touch_fire",
+        "Fire While Touching",
+        "Fires for as long as the aiming finger is on the screen: with Touch Aim on Point, touch "
+        "where to shoot. Off, fire with the FIRE button or the controller.",
+        true
+    );
+    touch.add_option_hidden_dependency("touch_fire", aim_id, snp::mouse::TouchAim::Off);
+    touch.add_option_change_callback("touch_fire", [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::android::set_touch_fire_while_touching(std::get<bool>(value));
+    });
+
+    touch.add_enum_option(
+        "touch_buttons",
+        "On-screen Buttons",
+        "The buttons for playing without a controller: a stick to move, FIRE, JUMP, AIM (the aim "
+        "mode), START and MENU."
+        "<br/><br/>"
+        "<b>Auto</b>: shown unless a controller is connected (a handheld's own controls count)."
+        "<br/>"
+        "<b>Always</b>, <b>Never</b>: whether or not one is.",
+        std::vector<recomp::config::ConfigOptionEnumOption>{
+            {(uint32_t)snp::android::TouchButtons::Auto, "Auto", "Auto"},
+            {(uint32_t)snp::android::TouchButtons::Always, "Always", "Always"},
+            {(uint32_t)snp::android::TouchButtons::Never, "Never", "Never"},
+        },
+        snp::android::TouchButtons::Auto
+    );
+    touch.add_option_change_callback("touch_buttons", [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::android::set_touch_buttons((snp::android::TouchButtons)std::get<uint32_t>(value));
+    });
+
+    touch.add_number_option(
+        "touch_size",
+        "Button Size",
+        "The size of the on-screen buttons.",
+        90, 180, 5, 0, true, 100
+    );
+    touch.add_option_change_callback("touch_size", [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::android::set_touch_size(std::get<double>(value));
+    });
+
+    touch.add_number_option(
+        "touch_opacity",
+        "Button Opacity",
+        "How solid the on-screen buttons are drawn.",
+        30, 100, 5, 0, true, 30
+    );
+    touch.add_option_change_callback("touch_opacity", [](recomp::config::ConfigValueVariant value, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
+        snp::android::set_touch_opacity(std::get<double>(value));
+    });
+}
+#endif

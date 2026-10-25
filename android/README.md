@@ -56,6 +56,11 @@ backups and device transfers. **Load Spanish ROM** (Sound tab) works the same wa
 Back (the system one, not a controller's) opens and closes the game's menu; the launcher's
 Exit closes the app.
 
+Touch (settings on the **Touch Controls** tab): by default a touch puts the reticle there and
+fires (Touch Aim: Point, Fire While Touching), alongside a controller. Drag aims like a
+trackpad instead. The on-screen buttons (move, FIRE, JUMP, AIM, START, MENU) show when no
+controller is connected, or always or never as set there.
+
 ## Logs
 
 The game's output goes to logcat with the tag `SnP`:

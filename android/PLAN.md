@@ -112,25 +112,44 @@ ones there were its own code. For this game, compare the Retroid with the PC on:
    (and the crash report if it crashes).
 3. Fix what comes up; the checks above.
 4. Pause emulation while the app is in the background (still to do in BTGA too).
-5. Touch controls.
+5. Touch controls (done, to test; see Touch controls).
 6. Release: signing (keystore.properties), versionCode/versionName following the PC release.
 
-## Touch controls (after the controller milestone)
+## Touch controls
 
 Owner's direction: **touch takes the place of the mouse aiming** this repo added for PC
-(`src/main/mouse.cpp`: the reticle follows the pointer), and it works **together with a
-gamepad**, so on the Retroid the stick moves and the touch screen aims at the same time.
-So unlike BTGA's overlay, the controls don't hide while a gamepad is in use.
+(`src/main/mouse.cpp`), it works **together with a gamepad** (on the Retroid the sticks and
+triggers play while the screen aims), and there is a **touch-to-shoot** mode, separate from
+the on-screen buttons phones need.
 
-- Aiming: a touch on the game area moves the reticle like the mouse does (absolute
-  position, or relative drag, to decide on the device); the mouse code's hook in
-  `snp.jp.toml` already places the reticle from the pointer.
-- On-screen buttons for phones without a gamepad (fire, jump, lock-on toggle, start,
-  move): from BTGA's descore touch module (`src/android/descore/touch/`, owner's) and
-  `TouchControlsView` (a SurfaceView of its own, see BTGA's PLAN for why), with a layout for
-  this game. A touch on a button doesn't aim.
-- Settings on a Touch Controls tab (as in BTGA): buttons shown / hidden / automatic, size,
-  opacity, aim mode.
+Done (step 3, to test on the device), settings on a Touch Controls tab (Android only, after
+Controls; `src/main/game_config.cpp`):
+
+- **Touch Aim**: Off / **Point** (default: the reticle goes where the finger is, like the
+  mouse's Absolute) / **Drag** (trackpad-like, by **Touch Aim Speed**, 100% = with the
+  finger). The finger goes through the same hooks as the mouse (`snp_mouse_reticle`,
+  `snp_aim_stick`): it wins over the mouse in a frame both moved; locked on, the game
+  steers and a swipe flicks to the next target, as a mouse flick does.
+- **Fire While Touching** (default on): Z held while the aiming finger is down. With Point
+  that's touch-to-shoot.
+- **On-screen Buttons**: Auto (default: shown unless a gamepad is connected, a handheld's
+  built-in one included) / Always / Never; **Button Size**, **Button Opacity**. Layout
+  (`src/android/touch_controls.cpp`): movement stick bottom left (the C buttons, the way the
+  game moves; past half way holds that direction, so two quick pushes roll), FIRE (Z)
+  bottom right with JUMP (R) beside it and AIM (A, the aim mode) above it, MENU and START top
+  centre.
+- Routing: while the game takes input `TouchControlsView` takes every touch and native code
+  gives each finger to a button (descore, `src/android/descore/touch/`, from BTGA unchanged)
+  or, if it lands on none, to aiming (the first such finger). So one finger aims while others
+  move, jump or fire, and SDL never sees in-game touches (it would make them mouse clicks,
+  and left click is bound to fire). Under the game's menus and on the launcher touches go to
+  SDL as before. A menu opening under a finger lets go of everything.
+- Unlike BTGA's, the buttons don't hide on gamepad input and come back on a touch: that
+  would fight touch aiming. They follow whether a gamepad is connected.
+
+To check on the device: Point and Drag feel, Fire While Touching, the buttons on a phone
+(or with On-screen Buttons on Always), whether the stick's up/down (C up/down) does anything
+unwanted in this game, two fingers at once, the menu opening mid-touch.
 
 ## Progress
 

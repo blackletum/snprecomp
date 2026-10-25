@@ -10,9 +10,13 @@
 //
 // Mouse buttons are bound like keys on the Controls tab
 // (lib-patches/RecompFrontend/0008, defaults in src/main/input_defaults.cpp).
+//
+// On Android a finger aims the same way (Touch Aim, src/android/touch_controls.cpp):
+// Point puts the reticle under it like Absolute, Drag moves it like Relative.
 #include "snp_mouse.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -39,12 +43,34 @@ namespace {
     int window_w = 1280;
     int window_h = 720;
 
+    // The aiming finger, in the touch view's pixels (guarded by motion_mutex).
+    struct {
+        float relative_x = 0.0f;
+        float relative_y = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
+        float last_x = 0.0f;
+        float last_y = 0.0f;
+        bool moved = false;
+        int view_w = 1280;
+        int view_h = 720;
+    } touch;
+    // The Touch Controls tab's defaults until its settings load.
+    std::atomic<snp::mouse::TouchAim> touch_aim{ snp::mouse::TouchAim::Point };
+    std::atomic<float> touch_speed{ 100.0f };
+
     int SDLCALL watch_events(void*, SDL_Event* event) {
         switch (event->type) {
             case SDL_MOUSEMOTION: {
                 if (recompinput::game_input_disabled()) {
                     break;
                 }
+#if defined(__ANDROID__)
+                // SDL's mouse made from touches; the touch view aims with fingers itself.
+                if (event->motion.which == SDL_TOUCH_MOUSEID) {
+                    break;
+                }
+#endif
                 int w = 0, h = 0;
                 if (window != nullptr) {
                     SDL_GetWindowSize(window, &w, &h);
@@ -140,6 +166,39 @@ namespace {
     }
 }
 
+void snp::mouse::set_touch_aim(TouchAim aim) {
+    touch_aim.store(aim);
+}
+
+void snp::mouse::set_touch_aim_speed(float speed_percent) {
+    touch_speed.store(speed_percent);
+}
+
+snp::mouse::TouchAim snp::mouse::get_touch_aim() {
+    return touch_aim.load();
+}
+
+void snp::mouse::touch_aim_down(float x, float y, int view_w, int view_h) {
+    std::lock_guard lock(motion_mutex);
+    touch.x = touch.last_x = x;
+    touch.y = touch.last_y = y;
+    touch.view_w = view_w;
+    touch.view_h = view_h;
+    // Point puts the reticle under the finger at once; Drag waits for it to move.
+    if (touch_aim.load() == TouchAim::Point) {
+        touch.moved = true;
+    }
+}
+
+void snp::mouse::touch_aim_move(float x, float y) {
+    std::lock_guard lock(motion_mutex);
+    touch.relative_x += x - touch.last_x;
+    touch.relative_y += y - touch.last_y;
+    touch.x = touch.last_x = x;
+    touch.y = touch.last_y = y;
+    touch.moved = true;
+}
+
 void snp::mouse::init() {
     SDL_AddEventWatch(watch_events, nullptr);
     recompinput::set_game_mouse_callback(game_mouse);
@@ -148,16 +207,11 @@ void snp::mouse::init() {
 // func_800AB924, before the reticle's velocity is added: the reticle struct.
 extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
     snp::config::MouseAim aim = snp::config::get_mouse_aim();
-    if (aim == snp::config::MouseAim::Off) {
-        if (!demo_playing(rdram)) {
-            apply_stick_sensitivity(rdram, reticle);
-        }
-        return;
-    }
+    snp::mouse::TouchAim finger_aim = touch_aim.load();
 
-    float dx, dy, px, py;
-    int w, h;
-    bool moved;
+    float dx, dy, px, py, tdx, tdy, tx, ty;
+    int w, h, tw, th;
+    bool moved, touched;
     {
         std::lock_guard lock(motion_mutex);
         dx = relative_x;
@@ -169,11 +223,23 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
         pointer_moved = false;
         w = window_w;
         h = window_h;
+        tdx = touch.relative_x;
+        tdy = touch.relative_y;
+        touch.relative_x = touch.relative_y = 0.0f;
+        tx = touch.x;
+        ty = touch.y;
+        touched = touch.moved;
+        touch.moved = false;
+        tw = touch.view_w;
+        th = touch.view_h;
     }
     if (demo_playing(rdram)) {
         return;
     }
-    if (!moved) {
+    // A finger wins over the mouse in a frame both moved in.
+    bool use_touch = finger_aim != snp::mouse::TouchAim::Off && touched;
+    bool use_mouse = !use_touch && aim != snp::config::MouseAim::Off && moved;
+    if (!use_touch && !use_mouse) {
         apply_stick_sensitivity(rdram, reticle);
         return;
     }
@@ -183,16 +249,31 @@ extern "C" void snp_mouse_reticle(uint8_t* rdram, uint32_t reticle) {
     if (locked_on(rdram, reticle)) {
         return;
     }
-    float unit = screen_unit(w, h);
     float x, y;
-    if (aim == snp::config::MouseAim::Relative) {
-        float scale = snp::config::get_mouse_sensitivity() / 50.0f / unit;
-        x = read_float(rdram, reticle + 0x28) + dx * scale;
-        y = read_float(rdram, reticle + 0x2C) - dy * scale;
+    if (use_touch) {
+        float unit = screen_unit(tw, th);
+        if (finger_aim == snp::mouse::TouchAim::Drag) {
+            // At 100% the reticle moves with the finger.
+            float scale = touch_speed.load() / 100.0f / unit;
+            x = read_float(rdram, reticle + 0x28) + tdx * scale;
+            y = read_float(rdram, reticle + 0x2C) - tdy * scale;
+        }
+        else {
+            x = (tx - tw * 0.5f) / unit;
+            y = (th * 0.5f - ty) / unit;
+        }
     }
     else {
-        x = (px - w * 0.5f) / unit;
-        y = (h * 0.5f - py) / unit;
+        float unit = screen_unit(w, h);
+        if (aim == snp::config::MouseAim::Relative) {
+            float scale = snp::config::get_mouse_sensitivity() / 50.0f / unit;
+            x = read_float(rdram, reticle + 0x28) + dx * scale;
+            y = read_float(rdram, reticle + 0x2C) - dy * scale;
+        }
+        else {
+            x = (px - w * 0.5f) / unit;
+            y = (h * 0.5f - py) / unit;
+        }
     }
     if (!std::isfinite(x) || !std::isfinite(y)) {
         return;
@@ -217,21 +298,26 @@ extern "C" void snp_aim_stick(uint8_t* rdram, uint32_t reticle, int32_t raw_x, i
         *x = std::clamp(raw_x, -64, 64);
         *y = std::clamp(raw_y, -64, 64);
     }
-    if (snp::config::get_mouse_aim() == snp::config::MouseAim::Off || !lock_on_mode(rdram, reticle) || *x != 0 || *y != 0) {
+    bool mouse_aims = snp::config::get_mouse_aim() != snp::config::MouseAim::Off;
+    bool finger_aims = touch_aim.load() != snp::mouse::TouchAim::Off;
+    if ((!mouse_aims && !finger_aims) || !lock_on_mode(rdram, reticle) || *x != 0 || *y != 0) {
         return;
     }
-    float dx, dy;
-    int w, h;
+    // In screen units; a finger's swipe flicks the same way.
+    float dx = 0.0f, dy = 0.0f;
     {
         std::lock_guard lock(motion_mutex);
-        dx = relative_x;
-        dy = relative_y;
-        w = window_w;
-        h = window_h;
+        if (mouse_aims) {
+            float unit = screen_unit(window_w, window_h);
+            dx += relative_x / unit;
+            dy += relative_y / unit;
+        }
+        if (finger_aims) {
+            float unit = screen_unit(touch.view_w, touch.view_h);
+            dx += touch.relative_x / unit;
+            dy += touch.relative_y / unit;
+        }
     }
-    float unit = screen_unit(w, h);
-    dx /= unit;
-    dy /= unit;
     constexpr float flick = 8.0f; // screen units in a frame
     float distance = std::sqrt(dx * dx + dy * dy);
     if (distance < flick) {
