@@ -83,7 +83,7 @@ Differences from BTGA:
 | Texture Packs, Open Folder | button hidden (app storage can't be opened by a file manager) |
 | Rice texture packs (RT64 0020) | compiled in; no way to put a pack in `texture_packs/` yet: later, e.g. an Install Pack button taking a .zip through the picker |
 | RT64 packs (.rtz, Mods tab, Install Mods) | the picker allows several files, as in BTGA; untested |
-| Load Spanish ROM (Sound tab) | through the picker; to test |
+| Load Spanish ROM (Sound tab) | the picker opens (owner); loading a dub and hearing it still to test |
 | Screen Filter, Bloom (RT64 0018, 0019) | same patches as BTGA, which work there; to test |
 | MSAA 8x (RecompFrontend 0010) | to test |
 | Mouse aiming | inert without a mouse; replaced by touch aiming later |
@@ -154,6 +154,8 @@ So unlike BTGA's overlay, the controls don't hide while a gamepad is in use.
 
 Owner built from the second checkout (PowerShell setup as in android/README.md) and ran it
 from Android Studio on the Retroid Pocket 6: boots, ROM loads through the launcher, and it
-"plays really well thus far" with the controller. Not yet gone through: the checks under
+"plays really well thus far" with the controller. Both ROMs (Japanese and the English
+translation) loaded side by side through Load ROM, with a Start Game for each; played the
+translation. Load Spanish ROM opens the picker. Not yet gone through: the checks under
 "Watch" and the SnP-specific features table.
 
