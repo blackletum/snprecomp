@@ -15,7 +15,7 @@ import android.view.SurfaceView;
 /**
  * The on-screen touch controls and touch aiming, laid over the game's surface. Both live in native
  * code (src/android/touch_controls.cpp, on top of descore's touch module; the settings on the game's
- * Touch Controls tab); this view forwards touches to it and draws the buttons it reports, the same
+ * Touch tab); this view forwards touches to it and draws the buttons it reports, the same
  * flat translucent gray as descore's GL drawing.
  *
  * While the game takes input (not on the launcher or under the game's own menus) every touch comes

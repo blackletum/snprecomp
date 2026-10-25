@@ -122,7 +122,7 @@ Owner's direction: **touch takes the place of the mouse aiming** this repo added
 triggers play while the screen aims), and there is a **touch-to-shoot** mode, separate from
 the on-screen buttons phones need.
 
-Done (step 3, to test on the device), settings on a Touch Controls tab (Android only, after
+Done (step 3, to test on the device), settings on a Touch tab (Android only, after
 Controls; `src/main/game_config.cpp`):
 
 - **Touch Aim**: Off / **Point** (default: the reticle goes where the finger is, like the
@@ -146,6 +146,9 @@ Controls; `src/main/game_config.cpp`):
   SDL as before. A menu opening under a finger lets go of everything.
 - Unlike BTGA's, the buttons don't hide on gamepad input and come back on a touch: that
   would fight touch aiming. They follow whether a gamepad is connected.
+
+Owner: touch works on the Retroid. The tab is named just "Touch" (owner: one line in the
+tab bar); its id stays `touch_controls`, so saved settings carry over.
 
 To check on the device: Point and Drag feel, Fire While Touching, the buttons on a phone
 (or with On-screen Buttons on Always), whether the stick's up/down (C up/down) does anything

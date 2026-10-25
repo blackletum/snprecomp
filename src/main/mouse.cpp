@@ -55,7 +55,7 @@ namespace {
         int view_w = 1280;
         int view_h = 720;
     } touch;
-    // The Touch Controls tab's defaults until its settings load.
+    // The Touch tab's defaults until its settings load.
     std::atomic<snp::mouse::TouchAim> touch_aim{ snp::mouse::TouchAim::Point };
     std::atomic<float> touch_speed{ 100.0f };
 

@@ -13,7 +13,7 @@ namespace snp::config {
     bool get_rumble_pak();
 
 #if defined(__ANDROID__)
-    // Fills the Touch Controls tab (Android): touch aiming and the on-screen buttons
+    // Fills the Touch tab (Android): touch aiming and the on-screen buttons
     // (src/android/touch_controls.cpp). Call on the tab's Config before
     // recompui::config::finalize().
     void add_touch_options(recomp::config::Config& touch);

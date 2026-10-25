@@ -524,7 +524,7 @@ int main(int argc, char** argv) {
     snp::config::add_graphics_options(recompui::config::create_graphics_tab());
     recompui::config::create_controls_tab();
 #if defined(__ANDROID__)
-    snp::config::add_touch_options(recompui::config::create_config_tab("Touch Controls", "touch_controls", false));
+    snp::config::add_touch_options(recompui::config::create_config_tab("Touch", "touch_controls", false));
 #endif
     snp::config::add_spanish_voices_option(recompui::config::create_sound_tab());
     recompui::config::create_mods_tab();

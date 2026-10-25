@@ -47,7 +47,7 @@ namespace {
     std::atomic<uint32_t> held_move{ 0 };
     std::atomic<bool> aim_finger_fires{ false };
 
-    // Settings, from the Touch Controls tab; Java lays the buttons out again when they change.
+    // Settings, from the Touch tab; Java lays the buttons out again when they change.
     std::atomic<snp::android::TouchButtons> setting_buttons{ snp::android::TouchButtons::Auto };
     std::atomic<bool> setting_fire_while_touching{ true };
     std::atomic<double> setting_size{ 100.0 };

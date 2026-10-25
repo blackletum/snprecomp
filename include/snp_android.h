@@ -15,7 +15,7 @@ namespace snp::android {
     // hold (the movement stick as the C buttons, and Z while an aiming finger fires).
     void add_touch_input(uint16_t* buttons);
 
-    // Their settings, from the Touch Controls tab (src/main/game_config.cpp). Auto: shown unless
+    // Their settings, from the Touch tab (src/main/game_config.cpp). Auto: shown unless
     // a gamepad is connected.
     enum class TouchButtons : uint32_t {
         Auto = 0,
