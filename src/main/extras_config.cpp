@@ -84,11 +84,14 @@ void snp::config::add_graphics_options(recomp::config::Config& graphics) {
         [](recomp::config::ConfigValueVariant, recomp::config::ConfigValueVariant, recomp::config::OptionChangeContext) {
             snp::config::apply_texture_packs();
         });
+#if !defined(__ANDROID__)
+    // On Android the folder is in the app's private storage, which no file manager can open.
     recompui::config::add_option_button(texture_packs_id, "Open Folder", []() {
         std::error_code dir_ec;
         std::filesystem::create_directories(texture_packs_path(), dir_ec);
         open_folder(texture_packs_path());
     });
+#endif
 }
 
 void snp::config::apply_texture_packs() {

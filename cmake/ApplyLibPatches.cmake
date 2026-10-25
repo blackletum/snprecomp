@@ -9,6 +9,24 @@
 # given, as for submodules nested in another one.
 find_package(Git REQUIRED)
 
+# The Git tree of the submodule's working tree as it is, untracked files included, built in an
+# index of its own so the submodule's index is left alone.
+function(snp_lib_patches_tree dir git_dir out_var)
+    set(git "${GIT_EXECUTABLE}" -c safe.directory=*)
+    set(ENV{GIT_INDEX_FILE} "${git_dir}/snp-lib-patches.index")
+    execute_process(COMMAND ${git} read-tree HEAD WORKING_DIRECTORY "${dir}" OUTPUT_QUIET ERROR_QUIET)
+    execute_process(COMMAND ${git} add -A WORKING_DIRECTORY "${dir}" OUTPUT_QUIET ERROR_QUIET)
+    execute_process(COMMAND ${git} write-tree
+        WORKING_DIRECTORY "${dir}"
+        RESULT_VARIABLE result OUTPUT_VARIABLE tree ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    unset(ENV{GIT_INDEX_FILE})
+    if (NOT result EQUAL 0)
+        set(tree "unknown")
+    endif()
+    set(${out_var} "${tree}" PARENT_SCOPE)
+endfunction()
+
 function(snp_apply_lib_patches submodule)
     if (ARGC GREATER 1)
         set(dir "${CMAKE_SOURCE_DIR}/${ARGV1}")
@@ -42,22 +60,12 @@ function(snp_apply_lib_patches submodule)
     set(stamp "${git_dir}/snp-lib-patches.txt")
     if (EXISTS "${stamp}")
         file(READ "${stamp}" applied)
-        if (applied STREQUAL state)
-            # Same set; still check it's in the tree (a checkout or submodule update undoes it).
-            set(all_in_tree TRUE)
-            foreach(patch IN LISTS patches)
-                execute_process(
-                    COMMAND ${git} apply --ignore-whitespace --reverse --check "${patch}"
-                    WORKING_DIRECTORY "${dir}"
-                    RESULT_VARIABLE result OUTPUT_QUIET ERROR_QUIET)
-                if (NOT result EQUAL 0)
-                    set(all_in_tree FALSE)
-                    break()
-                endif()
-            endforeach()
-            if (all_in_tree)
-                return()
-            endif()
+        snp_lib_patches_tree("${dir}" "${git_dir}" tree)
+        if (applied STREQUAL "${state}tree ${tree}\n")
+            # Same set, and the tree is still the one they made (a checkout or submodule
+            # update undoes them). Compared as a whole rather than each patch reverse-checked:
+            # a patch that a later one changes again no longer reverses on its own.
+            return()
         endif()
     endif()
 
@@ -87,5 +95,6 @@ function(snp_apply_lib_patches submodule)
         endif()
         message(STATUS "Applied ${patch} to ${dir}")
     endforeach()
-    file(WRITE "${stamp}" "${state}")
+    snp_lib_patches_tree("${dir}" "${git_dir}" tree)
+    file(WRITE "${stamp}" "${state}tree ${tree}\n")
 endfunction()

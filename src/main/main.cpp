@@ -53,6 +53,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/helpers.hpp"
 
+#include "snp_android.h"
 #include "snp_config.h"
 #include "snp_mouse.h"
 
@@ -154,9 +155,18 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
     uint32_t flags = SDL_WINDOW_RESIZABLE;
 #if defined(__APPLE__)
     flags |= SDL_WINDOW_METAL;
-#elif defined(RT64_SDL_WINDOW_VULKAN)
+#elif defined(RT64_SDL_WINDOW_VULKAN) || defined(__ANDROID__)
     // Linux only (CMakeLists.txt); Windows uses D3D12 through the HWND below.
+    // On Android the flag matters too: without a graphics flag SDL defaults to
+    // OpenGL there and connects an EGL surface to the window, after which
+    // Vulkan can't create its own surface on it.
     flags |= SDL_WINDOW_VULKAN;
+#endif
+#if defined(__ANDROID__)
+    // Always fullscreen on Android: SDL then hides the system bars (immersive
+    // mode), so the game gets the whole screen. The window mode setting goes
+    // through RT64, which has no Android path (lib-patches/RecompFrontend/0016).
+    flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #endif
 
     window = SDL_CreateWindow(program_name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, flags);
@@ -449,6 +459,9 @@ static void start_quit_watchdog() {
 }
 
 int main(int argc, char** argv) {
+#if defined(__ANDROID__)
+    snp::android::startup();
+#endif
     std::set_terminate(report_unhandled_exception_and_abort);
 
     recomp::Version project_version{};

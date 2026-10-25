@@ -1,0 +1,151 @@
+# Android port: plan
+
+Status: step 1 (port the BattleTanx: Global Assault Android work) done in the sandbox; next is
+the owner's first build and run on the Retroid Pocket 6 (step 2).
+Written 2026-10-25 so a new session can start without re-deciding anything.
+
+## Decisions (agreed with the project owner)
+
+- **Same approach as the owner's BattleTanx: Global Assault port** (wootbeer/btgarecomp,
+  branch `claude/modest-ramanujan-s0wyga`, whose `android/PLAN.md` has the full history of
+  every Android problem met there). That code is the owner's and is reused here as is
+  where it fits: `android/`, `cmake/Android.cmake`, `cmake/CrossCompile.cmake`,
+  `cmake/android/`, `src/android/`, and its Android lib-patches.
+- **Branch `android`** of this repo; `main`'s desktop build stays unaffected (all Android
+  code is behind `ANDROID` / `__ANDROID__` or `CMAKE_CROSSCOMPILING`). Merge `main` into
+  `android` from time to time.
+- **Ship the compiled game code in the APK**, like the Windows and Linux releases. The user
+  supplies their own ROM; the APK contains no ROM data (the build checks).
+- **Android Studio workflow**: a second local checkout on this branch; open its `android/`
+  folder, press Run (android/README.md).
+- **First milestone: controller-only**, booting on the owner's Retroid Pocket 6
+  (Snapdragon 8 Gen 2, Adreno 740). Touch controls come after (see Touch controls below).
+
+## Toolchain (same as BTGA)
+
+Android Gradle Plugin 9.3.2, Gradle wrapper 9.5.0, NDK r28c (28.2.13676358), SDK CMake
+3.31.6 (not 4.x), `compileSdk`/`targetSdk` 35, `minSdk` 28 (lib/SlotMap's `aligned_alloc`),
+`arm64-v8a` only, `ANDROID_STL=c++_shared`, debug builds `RelWithDebInfo`. SDL 2.32.10 and
+FreeType 2.13.3 built from source (SHA-256 pinned). App id `io.github.wootbeer.snprecomp`.
+
+## What came over from BTGA
+
+Submodules: RT64, N64ModernRuntime and RecompFrontend are at the same commits as in BTGA, so
+its patches apply unchanged. Renumbered so they sort after this repo's own:
+
+| BTGA | here | what |
+| --- | --- | --- |
+| N64Recomp 0001 | N64Recomp 0002 | float-to-int conversions give x86's results on ARM64 |
+| plume 0001 | plume 0001 | Adreno: boundless descriptor pool sized to the layout |
+| plume 0002 | plume 0002 | new surface after the app was in the background |
+| plume 0003, 0004 | (already here) | Vulkan scissors / clear rects clipped |
+| plume 0005 | plume 0005 | Adreno: read-only depth loaded, not LOAD_OP_NONE |
+| rt64 0002 | rt64 0002 | DXC by host; file_to_c / nfd from the parent project |
+| rt64 0003 | rt64 0003 | application window without X11 |
+| rt64 0004 | rt64 0004 | RT64's data folder in app storage |
+| rt64 0005 | rt64 0005 | RGBA8 swap chain |
+| rt64 0006 | rt64 0006 | no framebuffers for an invalid swap chain (all platforms) |
+| rt64 0008 | rt64 0008 | dithered alpha compare drawn with the ubershader (Adreno grain) |
+| rt64 0016 | rt64 0021 | shader descriptions kept between runs (no first-use stutter) |
+| RecompFrontend 0001-0005 | RecompFrontend 0013-0017 | native window, app folder, swap chain format, Window Mode hidden, no Open Mods Folder |
+
+Not taken: rt64 0009 (BTGA's own matrix-ID pairing), 0017 (AMD RDNA1 PC workaround), 0021
+(BTGA's auto-match group limit), RecompFrontend 0011-0013 (BTGA menu changes). rt64
+0011-0015 and 0018-0019 were already here (0011 differs slightly from BTGA's; this repo's
+is kept).
+
+Native code: `src/android/android_startup.cpp` (stdout/stderr to logcat, tag `SnP`; the
+surface provider for plume; working directory = app storage; input devices logged) and
+`src/android/nfd_android.cpp` (the file dialogs through the system document picker).
+`cmake/Android.cmake` also turns FMA contraction off (BTGA found it changes the maths).
+
+Java: `SnPActivity` (BTGA's activity without the touch overlay): copies `assets/` into app
+storage, keeps the system bars hidden, opens the document picker for the game, and the
+system Back opens the game's menu.
+
+Differences from BTGA:
+
+- **No separate ROM picker activity.** This game's launcher (`src/main/launcher.cpp`) already
+  has Load ROM / Change ROM for both supported ROMs (Japanese and the English translation),
+  through recompui's file dialog, which on Android is the document picker. BTGA's in-game
+  Change ROM works the same way on the device, after its surface fixes. Picked copies are
+  deleted at the next start.
+- Root `CMakeLists.txt`: the same changes as BTGA (cross-compile includes, no regeneration
+  when cross-compiling, patches `make` on `CMAKE_HOST_WIN32`, DXC by host, `libmain.so`,
+  SDL / FreeType / include folders).
+- `src/main/main.cpp`: Vulkan + fullscreen window on Android, `snp::android::startup()`.
+
+## SnP-specific features on Android
+
+| feature | state |
+| --- | --- |
+| Add to Steam (launcher) | hidden on Android |
+| Texture Packs, Open Folder | button hidden (app storage can't be opened by a file manager) |
+| Rice texture packs (RT64 0020) | compiled in; no way to put a pack in `texture_packs/` yet: later, e.g. an Install Pack button taking a .zip through the picker |
+| RT64 packs (.rtz, Mods tab, Install Mods) | the picker allows several files, as in BTGA; untested |
+| Load Spanish ROM (Sound tab) | through the picker; to test |
+| Screen Filter, Bloom (RT64 0018, 0019) | same patches as BTGA, which work there; to test |
+| MSAA 8x (RecompFrontend 0010) | to test |
+| Mouse aiming | inert without a mouse; replaced by touch aiming later |
+| Pacing log (RT64 0017) | logs to logcat; useful for the frame-pacing checks below |
+
+## Watch: frame pacing, interpolation, widescreen
+
+BTGA met Android-only versions of several desktop bugs (jitter at Display refresh rate,
+HUD lost in Expand, grain, flashing). The general fixes are in (above); the game-specific
+ones there were its own code. For this game, compare the Retroid with the PC on:
+
+- Original vs Display refresh rate (120 Hz on the Retroid): camera and reticle smoothness,
+  enemies and bullets, any jitter or flashing (this repo's rt64 0011-0016 interpolation
+  patches; BTGA needed FMA off for its matrix decomposition, already done here).
+- 4:3 vs Expand: HUD, the reticle clamp (`src/game/widescreen.cpp`), letterbox and
+  full-screen fades or flashes (BTGA's nuke flash covered the black sides).
+- Resolution Auto vs Original, MSAA, Screen Filter, Bloom.
+- Smoke, explosions and see-through effects (Adreno grain, BTGA's depth fix).
+- Lag spikes the first time effects appear (shader descriptions kept from run 2 on).
+- Background / lock screen and back.
+
+## Order of work
+
+1. Port BTGA's Android work (done, see Progress).
+2. Owner: build from the Android checkout, run on the Retroid, send `adb logcat -s SnP`
+   (and the crash report if it crashes).
+3. Fix what comes up; the checks above.
+4. Pause emulation while the app is in the background (still to do in BTGA too).
+5. Touch controls.
+6. Release: signing (keystore.properties), versionCode/versionName following the PC release.
+
+## Touch controls (after the controller milestone)
+
+Owner's direction: **touch takes the place of the mouse aiming** this repo added for PC
+(`src/main/mouse.cpp`: the reticle follows the pointer), and it works **together with a
+gamepad**, so on the Retroid the stick moves and the touch screen aims at the same time.
+So unlike BTGA's overlay, the controls don't hide while a gamepad is in use.
+
+- Aiming: a touch on the game area moves the reticle like the mouse does (absolute
+  position, or relative drag, to decide on the device); the mouse code's hook in
+  `snp.jp.toml` already places the reticle from the pointer.
+- On-screen buttons for phones without a gamepad (fire, jump, lock-on toggle, start,
+  move): from BTGA's descore touch module (`src/android/descore/touch/`, owner's) and
+  `TouchControlsView` (a SurfaceView of its own, see BTGA's PLAN for why), with a layout for
+  this game. A touch on a button doesn't aim.
+- Settings on a Touch Controls tab (as in BTGA): buttons shown / hidden / automatic, size,
+  opacity, aim mode.
+
+## Progress
+
+### Step 1 (2026-10-25) -- done in the sandbox
+
+- Copied and renamed BTGA's Android files (above); `.gitignore` has `build-*/`.
+- Checked: every lib patch applies in order on fresh submodules.
+- Sandbox build with stand-in (empty) generated sources, NDK r28c: everything compiles; the
+  only link errors of `libmain.so` are the game's own symbols the stand-ins lack
+  (`recomp_entrypoint`, `n_aspMain`). With the native targets cut to `SDL2`,
+  `gradlew assembleDebug` packages the APK (`SnPRecompiled-0.2.3-android-debug.apk`,
+  `io.github.wootbeer.snprecomp`, launcher activity `SnPActivity`, assets and licenses in it).
+- `cmake/ApplyLibPatches.cmake`: re-applied rt64's and RecompFrontend's patches on every
+  configure (also on main), because a patch that a later one changes again (rt64 0018,
+  RecompFrontend 0002 and 0006) no longer reverse-checks on its own; every Gradle sync then
+  rebuilt both. The stamp now records the patched working tree's Git tree ID and compares
+  that instead. Checked: unchanged trees are left alone; a file a patch changed or added,
+  undone by hand, gets that submodule's patches applied again.
