@@ -217,6 +217,89 @@ namespace {
         set_command(rdram, fullsync_addr, 0xDE010000, suffix);
     }
 
+    // The warehouse in the intro (the soldiers among the crates) has its two
+    // end walls, floor and ceiling but no side walls: a wider view sees past
+    // the ends of the back wall, into black. Its list is called with a list
+    // that calls it and then draws the side walls with the end walls' own
+    // textures (loaded by copies of its own commands), shading and texture
+    // scale, continuing them around the corners.
+    constexpr uint32_t warehouse_bytes = 0x880; // to its end command, included
+    constexpr uint64_t warehouse_hash = 0x1c09034e8e83b85full;
+    constexpr uint32_t warehouse_upper_load = 0x4B8; // the end walls' upper band (y 100 - 300)
+    constexpr uint32_t warehouse_lower_load = 0x7B8; // their lower band (y 0 - 100)
+    constexpr uint32_t warehouse_load_commands = 14;
+    constexpr uint32_t walls_area = 0x807F4000;
+    constexpr uint32_t walls_vertices = walls_area + 0x200;
+
+    bool is_warehouse(uint8_t* rdram, uint32_t list) {
+        if ((uint32_t)MEM_W(0, (gpr)(int32_t)list) != 0xFD100000 ||
+            (uint32_t)MEM_W(warehouse_bytes - 8, (gpr)(int32_t)list) != 0xDF000000) {
+            return false;
+        }
+        uint64_t h = 0xcbf29ce484222325ull;
+        for (uint32_t off = 0; off < warehouse_bytes; off += 4) {
+            h = (h ^ (uint32_t)MEM_W(off, (gpr)(int32_t)list)) * 0x100000001b3ull;
+        }
+        return h == warehouse_hash;
+    }
+
+    uint32_t warehouse_with_side_walls(uint8_t* rdram, uint32_t list) {
+        // The room is x -450 - 450, y 0 - 300, z -300 - 300 in its own space.
+        // Along the end walls s is 14.9 per unit, -1024 at x -450 and 3072 at
+        // x 450; t 40.96 per unit of height. The corners are shaded darker.
+        constexpr float s_per_unit = (1210.0f + 1024.0f) / 150.0f;
+        constexpr uint32_t edge = 0x00141EFF, wall = 0x001E28FF;
+        uint32_t v = walls_vertices;
+        auto vertex = [&](int x, int y, int z) {
+            float s = x < 0 ? -1024.0f - (z + 300) * s_per_unit : 3072.0f + (z + 300) * s_per_unit;
+            int t = y * 4096 / 100;
+            uint32_t color = (y == 0 || y == 300) ? edge : wall;
+            MEM_W(0, (gpr)(int32_t)v) = (int32_t)(((uint32_t)(uint16_t)x << 16) | (uint16_t)y);
+            MEM_W(4, (gpr)(int32_t)v) = (int32_t)((uint32_t)(uint16_t)z << 16);
+            MEM_W(8, (gpr)(int32_t)v) = (int32_t)(((uint32_t)(uint16_t)(int16_t)s << 16) | (uint16_t)t);
+            MEM_W(12, (gpr)(int32_t)v) = (int32_t)color;
+            v += 16;
+        };
+        // A quad's corners: near (z 300) and far (z -300) at the bottom (y0) and top (y1).
+        const uint32_t lower = v;
+        for (int x : { -450, 450 }) {
+            vertex(x, 0, -300); vertex(x, 0, 300); vertex(x, 100, 300); vertex(x, 100, -300);
+        }
+        const uint32_t upper = v;
+        for (int x : { -450, 450 }) {
+            vertex(x, 100, -300); vertex(x, 100, 300); vertex(x, 200, 300); vertex(x, 200, -300);
+            vertex(x, 300, 300); vertex(x, 300, -300);
+        }
+        auto tri2 = [](uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f) {
+            return std::pair<uint32_t, uint32_t>(0x06000000 | (a * 2) << 16 | (b * 2) << 8 | c * 2, (d * 2) << 16 | (e * 2) << 8 | f * 2);
+        };
+        // Facing into the room: far bottom, far top, near top, then far bottom, near top, near bottom
+        // on the left wall; the other way round on the right.
+        auto quad_left = [&](uint32_t fb, uint32_t nb, uint32_t nt, uint32_t ft) { return tri2(fb, ft, nt, fb, nt, nb); };
+        auto quad_right = [&](uint32_t fb, uint32_t nb, uint32_t nt, uint32_t ft) { return tri2(fb, nt, ft, fb, nb, nt); };
+
+        uint32_t addr = walls_area;
+        auto cmd = [&](uint32_t w0, uint32_t w1) { set_command(rdram, addr, w0, w1); addr += 8; };
+        auto copy_load = [&](uint32_t from) {
+            for (uint32_t i = 0; i < warehouse_load_commands; i++) {
+                cmd((uint32_t)MEM_W(from + i * 8, (gpr)(int32_t)list), (uint32_t)MEM_W(from + i * 8 + 4, (gpr)(int32_t)list));
+            }
+        };
+        cmd(0xDE000000, list);
+        copy_load(warehouse_lower_load);
+        cmd(0x01008010, lower); // 8 vertices
+        auto q = quad_left(0, 1, 2, 3); cmd(q.first, q.second);
+        q = quad_right(4, 5, 6, 7); cmd(q.first, q.second);
+        copy_load(warehouse_upper_load);
+        cmd(0x0100C018, upper); // 12 vertices
+        q = quad_left(0, 1, 2, 3); cmd(q.first, q.second);
+        q = quad_left(3, 2, 4, 5); cmd(q.first, q.second);
+        q = quad_right(6, 7, 8, 9); cmd(q.first, q.second);
+        q = quad_right(9, 8, 10, 11); cmd(q.first, q.second);
+        cmd(0xDF000000, 0);
+        return walls_area;
+    }
+
     // The motion blur blends the effect buffer onto the frame, then copies the
     // frame into it, both in strips of 6 rows from row 8 to 231: the rows
     // the N64's border covers were left out. Expand shows them, unblurred,
@@ -1089,6 +1172,9 @@ namespace {
             switch (w0 >> 24) {
                 case 0xDE: { // G_DL
                     bool branch = ((w0 >> 16) & 0xFF) != 0; // no return
+                    if (!branch && (addr < walls_area || addr >= walls_vertices) && is_warehouse(rdram, resolve(w1))) {
+                        set_command(rdram, addr, w0, w1 = warehouse_with_side_walls(rdram, resolve(w1)));
+                    }
                     if (depth < 10) {
                         walk(rdram, resolve(w1), depth + 1, widen, top && branch);
                     }

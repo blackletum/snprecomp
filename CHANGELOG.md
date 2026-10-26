@@ -9,6 +9,8 @@
 ### Fixed
 - The city stage's cones sliding left and right with ghosting at framerates
   above 30.
+- Black areas at the sides of the warehouse in the intro in widescreen. The
+  room never had side walls; they're now drawn with its own wall textures.
 
 ## [0.2.3 Beta] - 2026-10-25
 
