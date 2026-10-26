@@ -307,13 +307,12 @@ JNIEXPORT jstring JNICALL Java_io_github_wootbeer_snprecomp_TouchControlsView_na
 }
 
 // Bit 0: touch is for the game now -- it's running and takes input (not on the launcher, nor
-// while one of the game's menus has it). Bit 1: the settings changed, lay out again. Bit 2: the
-// game has started.
+// while one of the game's menus has it). Bit 1: the settings changed, lay out again.
 JNIEXPORT jint JNICALL Java_io_github_wootbeer_snprecomp_TouchControlsView_nativePoll(
     JNIEnv*, jclass) {
     const bool started = ultramodern::is_game_started();
     const bool active = started && !recompinput::game_input_disabled();
-    return (active ? 1 : 0) | (settings_changed.load() ? 2 : 0) | (started ? 4 : 0);
+    return (active ? 1 : 0) | (settings_changed.load() ? 2 : 0);
 }
 
 }

@@ -84,3 +84,7 @@ __pycache__/
 
 # Extra build folders (e.g. build-android from a command-line Android build)
 build-*/
+
+# Diagnostics: the interpolation log (SNP_INTERP_LOG=1) and its Android switch file
+snp_interp.log
+snp-interp-log

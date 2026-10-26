@@ -2,7 +2,7 @@
 
 You will need the game file from a licensed copy in order to play it.
 
-A native PC port of Sin and Punishment (Tsumi to Batsu: Hoshi no Keishousha),
+A native PC and Android port of Sin and Punishment (Tsumi to Batsu: Hoshi no Keishousha),
 made by statically recompiling the N64 game with
 [N64Recomp](https://github.com/N64Recomp/N64Recomp) and running it on
 [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime) with
@@ -12,7 +12,7 @@ Unofficial, and not affiliated with the rights holders. **No game data is
 included.** You need your own dump of the game to build or play this.
 
 ## Features
-- Runs natively on Windows. Linux and Steam Deck builds are untested.
+- Runs natively on Windows and Android. Linux and Steam Deck builds are untested.
 - Widescreen, with the HUD at the screen edges and the reticle reaching the
   full width (experimental).
 - High resolutions and framerates above 30 fps (experimental).
@@ -27,6 +27,8 @@ included.** You need your own dump of the game to build or play this.
 - Separate Music and Sound Effects volume.
 - Unlocks and cheats in the settings, no codes needed.
 - Add to Steam from the launcher, with artwork.
+- Android: plays with a controller or a handheld's own controls, and touch
+  controls (experimental): touch to aim and shoot, and on-screen buttons.
 
 ## Game Files
 You need your own data file: the Japanese release, or an English translation
@@ -60,6 +62,11 @@ Get the latest build from the [Releases](https://github.com/wootbeer/snprecomp/r
 - **Linux / Steam Deck (untested):** extract the `.tar.gz` and run
   `SnPRecompiled.sh`. Settings and saves go in `~/.config/snprecomp`.
 
+- **Android:** install `SnPRecompiled-<version>-android.apk` (allow installs
+  from your browser or file manager when asked). Needs Android 9 or newer, a
+  64-bit ARM device and Vulkan. On first start, **Load ROM** opens the system
+  file picker; the ROM is copied into the app, so it's needed only once.
+
 On Steam Deck, in Desktop Mode, use **Add to Steam** on the launcher (or "Add a
 Non-Steam Game" in Steam), then play it from Gaming Mode.
 
@@ -80,6 +87,15 @@ Sensitivity are at the top
 of the Controls tab. Mouse buttons, side buttons too, can be bound like keys
 on the keyboard side of the Controls tab.
 
+**Android:** a controller or a handheld's controls work as above. Back opens
+the settings. Touch controls (experimental) are set on the **Touch** tab:
+- **Touch Aim**: Point (the reticle goes where you touch, the default), Drag
+  (like a trackpad) or Off. It works together with a controller.
+- **Fire While Touching** (on by default): fires while your finger is down,
+  so with Point a touch shoots where it lands.
+- **On-screen Buttons**: a stick to move, FIRE, JUMP, AIM, START and MENU.
+  Auto shows them only when no controller is connected.
+
 ## Texture Packs
 - **RT64 packs** (`.rtz`): install them from the Mods tab.
 - **Rice packs** (emulator `hires_texture` packs): put the pack's folder in the
@@ -88,6 +104,9 @@ on the keyboard side of the Controls tab.
 
 Tested with Vanit's English translation pack on the Japanese ROM. If both
 kinds of pack replace the same texture, the RT64 one is used.
+
+On Android, Rice packs can't be installed yet (the app's folder can't be
+opened from a file manager).
 
 ## Issues and Limitations
 
@@ -98,6 +117,7 @@ Known:
 - A few scenes show sky or nothing at the sides in widescreen, where the game
   has no scenery past the original 4:3 view.
 - Linux and Steam Deck builds are untested.
+- Android: tested on a Retroid Pocket 6. Touch controls are experimental.
 
 Else:
 - Please see the "Issues" section in GitHub. Screenshots or a short video
@@ -108,7 +128,8 @@ Else:
 See [CHANGELOG.md](CHANGELOG.md).
 
 ## Building
-See [BUILDING.md](BUILDING.md).
+See [BUILDING.md](BUILDING.md), and [android/README.md](android/README.md) for
+Android.
 
 ## Credits
 - [N64Recomp and N64ModernRuntime](https://github.com/N64Recomp) by Mr-Wiseguy

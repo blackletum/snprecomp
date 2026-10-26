@@ -44,7 +44,6 @@ public class TouchControlsView extends SurfaceView implements SurfaceHolder.Call
     private MenuListener menuListener;
 
     private boolean active;
-    private boolean gameStarted;
     private boolean gamepadConnected;
     private boolean laidOut;
     private boolean surfaceReady;
@@ -56,7 +55,6 @@ public class TouchControlsView extends SurfaceView implements SurfaceHolder.Call
         public void run() {
             int state = nativePoll();
             boolean nowActive = (state & 1) != 0;
-            gameStarted = (state & 4) != 0;
             if ((state & 2) != 0) {
                 relayout();
             }
@@ -83,11 +81,6 @@ public class TouchControlsView extends SurfaceView implements SurfaceHolder.Call
 
     void setMenuListener(MenuListener listener) {
         menuListener = listener;
-    }
-
-    /** Whether the game itself is running (past the launcher). */
-    boolean isGameStarted() {
-        return gameStarted;
     }
 
     /** Whether a gamepad is connected (a handheld's built-in one too). */

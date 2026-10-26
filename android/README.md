@@ -1,6 +1,6 @@
 # Android build
 
-Work in progress (see [PLAN.md](PLAN.md)). The app is SDL's `SDLActivity` hosting the game,
+How to build the Android version (status and history in [PLAN.md](PLAN.md)). The app is SDL's `SDLActivity` hosting the game,
 built by Android Studio from the repo-root `CMakeLists.txt` as `libmain.so`. Like the
 Windows and Linux releases, the APK carries the compiled game code but no ROM: the build
 fails if a file in it is named or headed like an N64 ROM.
