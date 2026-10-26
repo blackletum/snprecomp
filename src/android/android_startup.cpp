@@ -14,6 +14,7 @@
 
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_gamecontroller.h"
+#include "SDL2/SDL_hints.h"
 #include "SDL2/SDL_system.h"
 
 #include "plume/plume_render_interface_types.h"
@@ -150,6 +151,10 @@ void snp::android::startup() {
     forward_output_to_logcat();
     SDL_AddEventWatch(log_input_devices, nullptr);
     install_window_provider();
+
+    // Landscape only, either way up. Without the hint SDL lets a resizable window take any
+    // orientation, overriding the manifest's sensorLandscape, so the launcher could open in portrait.
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 
     const char* internal_path = SDL_AndroidGetInternalStoragePath();
     if (internal_path == nullptr || chdir(internal_path) != 0) {

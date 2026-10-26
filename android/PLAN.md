@@ -283,3 +283,26 @@ screen filter on the HUD and crosshair only.
 
 Owner: 0.2.4 on the Retroid tested good (regenerated game code, Android Studio Run).
 
+### Crash after the Nintendo logo on Adreno 619 (2026-10-26)
+
+Reports: GitHub issue 14 (Adreno 619) and the owner's own phone (a Motorola, Adreno 619,
+Vulkan driver 512.530); a Reddit report from an S24 Ultra (Adreno 750, Android 16, black
+screen then closed before the launcher) has no log yet and may be something else. The owner's
+logcat: all 8 of RT64's ubershader pipelines (`RasterShaderUber`, one per zCmp/zUpd/cvgAdd)
+fail in the driver ("AdrenoVK: Failed to link shaders", `vkCreateGraphicsPipelines` returns
+VK_ERROR_UNKNOWN); plume leaves the pipeline's handle null, and the first draw that falls back
+to the ubershader binds it: segfault in `vkCmdBindPipeline` (read of 0x128).
+
+Fix (all platforms; nothing changes where the ubershader compiles): plume 0006 gives pipelines
+`isValid()` and skips binding one that isn't; rt64 0023 has `RasterShaderUber::getPipeline`
+return null for a failed pipeline, logs how many failed, and a draw then uses its own
+(specialized) shader if that's compiled and valid, else is skipped until it is. Patch 0008's
+dithered-alpha draws fall back to their own shader too. Expect objects to pop in on a first
+run while their shaders compile; later runs compile the shaders seen before at startup
+(rt64 0022). To test on the owner's phone: no crash; whether the specialized shaders link on
+this driver (no "Failed to link shaders" after the 8 ubershader ones); how long pop-in lasts.
+
+Also: the launcher opened in portrait on that phone. With a resizable window and no
+orientation hint, SDL requests FULL_USER, overriding the manifest's sensorLandscape;
+`snp::android::startup()` now sets `SDL_HINT_ORIENTATIONS` to both landscapes.
+

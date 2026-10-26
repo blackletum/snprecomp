@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Android: the game crashed after the Nintendo logo on phones with older
+  Adreno GPUs (Adreno 619 and similar), whose drivers can't compile one of the
+  renderer's shaders. The game now draws without it.
+- Android: the launcher could open in portrait. The app is landscape only now.
+
 ## [0.2.4 Beta] - 2026-10-26
 
 ### Added
