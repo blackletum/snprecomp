@@ -87,18 +87,51 @@ namespace {
     std::vector<ObjectPlace> last_object_places;
     constexpr float same_spot = 1.0f;
 
-    bool at_another_kinds_spot(uint32_t kind, const float* pos) {
-        bool other = false;
+    // The kind of object last time exactly at pos, if none of `kind` was (0: none, or one of
+    // its own kind was).
+    uint32_t another_kind_at(uint32_t kind, const float* pos) {
+        uint32_t other = 0;
         for (const ObjectPlace& p : last_object_places) {
             float dx = p.pos[0] - pos[0], dy = p.pos[1] - pos[1], dz = p.pos[2] - pos[2];
             if (dx * dx + dy * dy + dz * dz <= same_spot * same_spot) {
                 if (p.kind == kind) {
-                    return false;
+                    return 0;
                 }
-                other = true;
+                other = p.kind;
             }
         }
         return other;
+    }
+
+    // Kinds of object that are one kind drawn with different models (the cones' two frames):
+    // numbered and given IDs together, so one keeps its number whichever it's drawn with, also
+    // while it moves (a cone kicked into the air). Two kinds are joined once objects of each
+    // have taken over the other's spot a few times; a single such meeting (something spawned
+    // where another thing just was) joins nothing.
+    std::unordered_map<uint32_t, uint32_t> family_parent;
+    std::unordered_map<uint64_t, uint32_t> takeovers; // by pair of kinds
+    constexpr uint32_t takeovers_to_join = 3;
+
+    uint32_t family(uint32_t kind) {
+        auto it = family_parent.find(kind);
+        while (it != family_parent.end() && it->second != kind) {
+            kind = it->second;
+            it = family_parent.find(kind);
+        }
+        return kind;
+    }
+
+    void note_takeover(uint32_t a, uint32_t b) {
+        a = family(a);
+        b = family(b);
+        if (a == b) {
+            return;
+        }
+        const uint64_t pair = a < b ? ((uint64_t)a << 32 | b) : ((uint64_t)b << 32 | a);
+        if (++takeovers[pair] >= takeovers_to_join) {
+            family_parent[std::max(a, b)] = std::min(a, b);
+            family_parent[std::min(a, b)] = std::min(a, b);
+        }
     }
 
     // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, or a file
@@ -179,8 +212,9 @@ namespace {
         const float max_distance = 256.0f;
         std::vector<Pair> pairs;
         for (uint32_t i = 0; i < now.size(); i++) {
-            // Taken over from an object of another kind: a new number, drawn where it is.
-            if (objects && at_another_kinds_spot(now[i]->key, now[i]->pos)) {
+            // Taken over from an object of another kind (not yet known to be one with it): a
+            // new number, drawn where it is.
+            if (objects && another_kind_at(now[i]->key, now[i]->pos) != 0) {
                 if (log != nullptr) {
                     std::fprintf(log, "  (at (%.1f %.1f %.1f): another kind's spot last time)\n", now[i]->pos[0], now[i]->pos[1], now[i]->pos[2]);
                 }
@@ -422,6 +456,14 @@ namespace snp {
         for (uint32_t serial : drawn) {
             auto it = instances.find(serial);
             if (it != instances.end()) {
+                if (serial & object_serials) {
+                    // Its model's kind (interp_set_object_model) to its family's.
+                    Instance& inst = it->second;
+                    if (uint32_t other = another_kind_at(family(inst.key), inst.pos)) {
+                        note_takeover(inst.key, other);
+                    }
+                    inst.key = family(inst.key);
+                }
                 by_kind[it->second.key].push_back(&it->second);
                 object_kind[it->second.key] = (serial & object_serials) != 0;
                 ages[std::min<uint32_t>(generation - it->second.built, 3)]++;

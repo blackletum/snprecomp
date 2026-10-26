@@ -263,3 +263,10 @@ and RT64 slid it across on in-between frames, back and forth. Now an object exac
 1 unit) where another kind's object was last time, and no object of its own kind, gets a new
 number: drawn where it is. (`last_object_places`, `src/game/interpolation.cpp`.)
 
+Owner: mostly fixed; the cones still flash while they fly (walking into them kicks them into
+the air, as in the game). They keep switching models in the air, where no spot is shared, so
+a flying cone was paired with another of its model or with nothing. Now kinds are joined into
+a family once objects of each have taken over the other's exact spot 3 times (`family`,
+`note_takeover`): a family is numbered and given IDs as one kind, so a cone keeps its number
+with either model, standing or flying. Two kinds both drawn at a spot every frame never count.
+
