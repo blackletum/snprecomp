@@ -6,6 +6,10 @@
 - Music Volume and Sound Effects Volume on the Sound tab, next to Main Volume.
   Voices count as sound effects.
 
+### Fixed
+- The city stage's cones sliding left and right with ghosting at framerates
+  above 30.
+
 ## [0.2.3 Beta] - 2026-10-25
 
 ### Fixed
