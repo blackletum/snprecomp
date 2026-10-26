@@ -22,6 +22,11 @@ set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 # recompiled game maths and for RT64's matrix decomposition used by frame interpolation.
 add_compile_options(-ffp-contract=off)
 
+# hlslpp (RT64's vector maths, also used by its frame interpolation) divides and takes square
+# roots on ARM with NEON estimates refined by Newton steps, where SSE (the desktop builds) is
+# exact. Test (android/PLAN.md, cones trading places): plain scalar maths, as exact as SSE.
+add_compile_definitions(HLSLPP_SCALAR)
+
 include(FetchContent)
 
 # The SDL Java sources in the Android app (org.libsdl.app) must come from this same release.

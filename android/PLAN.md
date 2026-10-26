@@ -196,5 +196,19 @@ If not that: `adb shell setprop debug.snp.interplog 1`, start the game, play the
 ~20 s, quit, then `adb shell run-as io.github.wootbeer.snprecomp cat files/snp_interp.log >
 snp_interp.log`. Per display list: how old the instances drawn are (a different build/walk
 timing on Android would show there), and each object kind's numbering (positions, matches,
-distances). `SNP_INTERP_LOG=1` does the same on desktop.
+distances). `SNP_INTERP_LOG=1` does the same on desktop. (A flag file works too, for when
+the property can't be read: `adb shell run-as io.github.wootbeer.snprecomp touch
+files/snp-interp-log`, force-stop, start.)
+
+Owner: the stable sort didn't change it ("still flash and jiggle and seem to swap"). The log
+(~450 display lists in the cone scene): numbering is right. Static objects match themselves
+at distance 0 every list, alike ones keep their numbers when their drawing order changes,
+nothing drops out as stale (instances drawn were built 1 or 2 lists earlier, never 3), and
+the counts drawn are steady. So the IDs RT64 gets are stable; the swapping is in RT64's
+interpolation itself. Its code is the same as on PC except for hlslpp, its vector maths, which
+on ARM uses NEON with division and square root from estimates plus Newton steps (SSE: exact).
+Interpolation decomposes matrices (scale from square roots, rotation), so a slightly
+different result can tip a borderline choice. Test: `HLSLPP_SCALAR` on Android
+(`cmake/Android.cmake`). If that fixes it, replace it with exact NEON division and square
+root (aarch64 has `vdivq_f32`, `vsqrtq_f32`) as an hlslpp patch, keeping NEON.
 
