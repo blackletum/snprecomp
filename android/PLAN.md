@@ -46,7 +46,7 @@ its patches apply unchanged. Renumbered so they sort after this repo's own:
 | rt64 0005 | rt64 0005 | RGBA8 swap chain |
 | rt64 0006 | rt64 0006 | no framebuffers for an invalid swap chain (all platforms) |
 | rt64 0008 | rt64 0008 | dithered alpha compare drawn with the ubershader (Adreno grain) |
-| rt64 0016 | rt64 0021 | shader descriptions kept between runs (no first-use stutter) |
+| rt64 0016 | rt64 0022 | shader descriptions kept between runs (no first-use stutter) |
 | RecompFrontend 0001-0005 | RecompFrontend 0013-0017 | native window, app folder, swap chain format, Window Mode hidden, no Open Mods Folder |
 
 Not taken: rt64 0009 (BTGA's own matrix-ID pairing), 0017 (AMD RDNA1 PC workaround), 0021
