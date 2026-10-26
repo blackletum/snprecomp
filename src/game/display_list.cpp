@@ -26,6 +26,7 @@ namespace snp {
     void interp_new_frame(); // interpolation.cpp
     uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance, bool& object);
     void interp_number_instances(const std::vector<uint32_t>& drawn);
+    void interp_walk_done(uint32_t untagged);
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
     void interp_set_object_model(uint32_t instance, uint32_t model);
 }
@@ -402,6 +403,7 @@ namespace {
         bool object;
     };
     std::vector<InstanceTag> instance_tags;
+    uint32_t interp_untagged = 0; // matrix loads this frame past the tag area (for the log)
 
     // The model a matrix load draws: the first vertices or display list
     // after it, before the next matrix (0 if none). Loads tagged in an earlier
@@ -433,6 +435,7 @@ namespace {
     // where the game has it).
     void tag_matrix(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1, bool hud) {
         if (interp_entry >= interp_entries) {
+            interp_untagged++;
             return;
         }
         uint32_t instance = 0;
@@ -466,6 +469,8 @@ namespace {
     // After the walk: number the instances this display list draws (all at
     // once) and put the numbers into their matrices' IDs.
     void number_tagged_instances(uint8_t* rdram) {
+        snp::interp_walk_done(interp_untagged);
+        interp_untagged = 0;
         if (instance_tags.empty()) {
             return;
         }

@@ -105,6 +105,13 @@ namespace {
         return file;
     }
 
+    // For the log: this display list's matrix lookups (interp_matrix_id) by outcome.
+    struct {
+        uint32_t found[3];    // recorded 0, 1, 2 lists ago
+        uint32_t stale[4];    // 3, 4, 5, 6+ lists ago: left automatic
+        uint32_t unrecorded;  // no record of the matrix: automatic
+    } lookups = {};
+
     float distance2(const float* a, const float* b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return dx * dx + dy * dy + dz * dz;
@@ -319,9 +326,16 @@ namespace snp {
         instance = 0;
         object = false;
         auto it = matrices.find(addr & 0x1FFFFFFF);
-        if (it == matrices.end() || generation - it->second.generation > 2) {
+        if (it == matrices.end()) {
+            lookups.unrecorded++;
             return 0xFFFFFFFF;
         }
+        const uint32_t age = generation - it->second.generation;
+        if (age > 2) {
+            lookups.stale[std::min<uint32_t>(age - 3, 3)]++;
+            return 0xFFFFFFFF;
+        }
+        lookups.found[age]++;
         // SNP_INTERP_INSTANCES=0 turns instance numbering off, for comparing.
         static const bool instances_off = [] { const char* v = std::getenv("SNP_INTERP_INSTANCES"); return v && v[0] == '0'; }();
         auto inst = instances.find(it->second.instance);
@@ -333,6 +347,22 @@ namespace snp {
             return 0xFFFFFFFF; // an object's ID is only of use with its number
         }
         return it->second.id;
+    }
+
+    // Once a display list has been walked, before its instances are numbered: logs its matrix
+    // lookups (and how many matrix loads didn't fit the tag area, left untagged).
+    void interp_walk_done(uint32_t untagged) {
+        if (FILE* log = interp_log()) {
+            // Quitting ends the process without flushing files, so the last display list's
+            // lines go out now.
+            std::fflush(log);
+            std::fprintf(log, "generation %u: lookups found 0/1/2 lists ago %u %u %u, stale 3/4/5/6+ %u %u %u %u, "
+                "unrecorded %u, untagged %u\n", generation,
+                lookups.found[0], lookups.found[1], lookups.found[2],
+                lookups.stale[0], lookups.stale[1], lookups.stale[2], lookups.stale[3],
+                lookups.unrecorded, untagged);
+        }
+        lookups = {};
     }
 
     // Once a display list has been walked: number the instances it draws.
@@ -348,11 +378,8 @@ namespace snp {
             }
         }
         if (log != nullptr) {
-            // Quitting ends the process without flushing files, so the last display list's
-            // lines go out now.
-            std::fflush(log);
-            std::fprintf(log, "generation %u: %zu drawn, built 0/1/2/3+ lists ago: %u %u %u %u\n",
-                generation, drawn.size(), ages[0], ages[1], ages[2], ages[3]);
+            std::fprintf(log, " instances %zu, built 0/1/2/3+ lists ago: %u %u %u %u\n",
+                drawn.size(), ages[0], ages[1], ages[2], ages[3]);
         }
         for (auto& kind : by_kind) {
             // Ones not drawn for a while are gone: they'd keep their numbers

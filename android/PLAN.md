@@ -211,8 +211,16 @@ Interpolation decomposes matrices (scale from square roots, rotation), so a slig
 different result can tip a borderline choice. Test: `HLSLPP_SCALAR` on Android
 (`cmake/Android.cmake`).
 
-Owner: with scalar hlslpp the cones are fine (a flicker as the stage first loads, then
-steady). Kept as the fix. (Correction to the above: on aarch64 hlslpp's division and square
+Owner: with scalar hlslpp the cones were fine (a flicker as the stage first loads, then
+steady), but after quitting from the game's menu and starting the level again they traded
+places as badly as before. So not hlslpp (back to NEON): it depends on the run. The first
+log only counted matrices whose record passed the age check (built at most 2 display lists
+before the walk; older ones are left to RT64's automatic matching, which is what swaps
+alike cones), so a run whose timing goes past that wouldn't have shown. The log now gives,
+per display list, the lookups by outcome (found 0/1/2 lists ago, stale 3/4/5/6+, never
+recorded) and matrix loads past the tag area. Next: a log of the bad case (quit, restart the
+level), and the same on PC (SNP_INTERP_LOG=1) to compare.
+Earlier note, kept for the record: (Correction to the above: on aarch64 hlslpp's division and square
 root are the native exact instructions, and its multiply-adds aren't fused with
 `-ffp-contract=off`; its NEON reciprocal and some other operations still differ from SSE's.
 Which one tipped RT64 wasn't narrowed down: each try needs a device run.) The cost is RT64's
