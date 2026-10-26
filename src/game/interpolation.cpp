@@ -84,7 +84,11 @@ namespace {
             char prop[PROP_VALUE_MAX] = "";
             on = on || (__system_property_get("debug.snp.interplog", prop) > 0 && prop[0] == '1');
 #endif
-            return on ? std::fopen("snp_interp.log", "w") : nullptr;
+            FILE* f = on ? std::fopen("snp_interp.log", "w") : nullptr;
+            if (on) {
+                std::fprintf(stderr, "Interpolation log: %s\n", f != nullptr ? "on, snp_interp.log" : "couldn't create snp_interp.log");
+            }
+            return f;
         }();
         // 50 MB at most.
         if (file != nullptr && std::ftell(file) > 50L * 1024 * 1024) {
@@ -337,6 +341,9 @@ namespace snp {
             }
         }
         if (log != nullptr) {
+            // Quitting ends the process without flushing files, so the last display list's
+            // lines go out now.
+            std::fflush(log);
             std::fprintf(log, "generation %u: %zu drawn, built 0/1/2/3+ lists ago: %u %u %u %u\n",
                 generation, drawn.size(), ages[0], ages[1], ages[2], ages[3]);
         }
