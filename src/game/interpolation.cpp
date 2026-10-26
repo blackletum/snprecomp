@@ -10,10 +10,15 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 
 namespace {
     uint32_t current_joint = 0;
@@ -67,6 +72,28 @@ namespace {
     };
     std::unordered_map<uint32_t, Kind> kinds;
 
+    // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, then start the
+    // game) writes snp_interp.log in the working directory (on Android the app's storage): for
+    // each display list, how old the instances it draws are, and how each kind of object with
+    // more than one instance drawn was numbered. For finding why alike objects trade places.
+    FILE* interp_log() {
+        static FILE* file = [] {
+            const char* v = std::getenv("SNP_INTERP_LOG");
+            bool on = v != nullptr && v[0] == '1';
+#if defined(__ANDROID__)
+            char prop[PROP_VALUE_MAX] = "";
+            on = on || (__system_property_get("debug.snp.interplog", prop) > 0 && prop[0] == '1');
+#endif
+            return on ? std::fopen("snp_interp.log", "w") : nullptr;
+        }();
+        // 50 MB at most.
+        if (file != nullptr && std::ftell(file) > 50L * 1024 * 1024) {
+            std::fclose(file);
+            file = nullptr;
+        }
+        return file;
+    }
+
     float distance2(const float* a, const float* b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return dx * dx + dy * dy + dz * dz;
@@ -94,7 +121,7 @@ namespace {
     // layers in one place apart, not to outweigh a real distance (spinning
     // parts, turned anew every frame, swapped numbers 80 units apart and
     // blended into each other in the intro).
-    void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now) {
+    void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now, FILE* log) {
         struct Pair {
             float d;
             uint32_t now;
@@ -114,7 +141,10 @@ namespace {
                 pairs.push_back({ distance2(now[i]->pos, expected) + turn * turn, i, j });
             }
         }
-        std::sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
+        // Stable, so equal distances keep the order they were listed in (now, then before):
+        // std::sort leaves ties to the library, and Android's (libc++) put them differently
+        // from the desktop ones'.
+        std::stable_sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
         std::vector<bool> numbered(now.size(), false);
         std::vector<bool> before_used(placed.size(), false);
         std::vector<Placed> next(now.size());
@@ -130,6 +160,11 @@ namespace {
             numbered[pair.now] = true;
             before_used[pair.before] = true;
             now[pair.now]->number = placed[pair.before].number;
+            if (log != nullptr) {
+                std::fprintf(log, "  #%u at (%.1f %.1f %.1f) <- (%.1f %.1f %.1f) d %.1f\n", now[pair.now]->number,
+                    now[pair.now]->pos[0], now[pair.now]->pos[1], now[pair.now]->pos[2],
+                    placed[pair.before].pos[0], placed[pair.before].pos[1], placed[pair.before].pos[2], std::sqrt(pair.d));
+            }
             for (int k = 0; k < 3; k++) {
                 next[pair.now].vel[k] = now[pair.now]->pos[k] - placed[pair.before].pos[k];
             }
@@ -149,6 +184,9 @@ namespace {
                 while (used(n)) n++;
                 now[i]->number = n;
                 numbered[i] = true;
+                if (log != nullptr) {
+                    std::fprintf(log, "  #%u at (%.1f %.1f %.1f) new\n", n, now[i]->pos[0], now[i]->pos[1], now[i]->pos[2]);
+                }
             }
             next[i].number = now[i]->number;
         }
@@ -289,11 +327,18 @@ namespace snp {
     // Once a display list has been walked: number the instances it draws.
     void interp_number_instances(const std::vector<uint32_t>& drawn) {
         std::unordered_map<uint32_t, std::vector<Instance*>> by_kind;
+        FILE* log = interp_log();
+        uint32_t ages[4] = {};
         for (uint32_t serial : drawn) {
             auto it = instances.find(serial);
             if (it != instances.end()) {
                 by_kind[it->second.key].push_back(&it->second);
+                ages[std::min<uint32_t>(generation - it->second.built, 3)]++;
             }
+        }
+        if (log != nullptr) {
+            std::fprintf(log, "generation %u: %zu drawn, built 0/1/2/3+ lists ago: %u %u %u %u\n",
+                generation, drawn.size(), ages[0], ages[1], ages[2], ages[3]);
         }
         for (auto& kind : by_kind) {
             // Ones not drawn for a while are gone: they'd keep their numbers
@@ -303,7 +348,11 @@ namespace snp {
                 k.placed.clear();
             }
             k.generation = generation;
-            number_kind(k.placed, kind.second);
+            FILE* kind_log = (log != nullptr && (kind.first & object_serials) && kind.second.size() > 1) ? log : nullptr;
+            if (kind_log != nullptr) {
+                std::fprintf(kind_log, " kind %08X: %zu now, %zu before\n", kind.first, kind.second.size(), k.placed.size());
+            }
+            number_kind(k.placed, kind.second, kind_log);
         }
     }
 

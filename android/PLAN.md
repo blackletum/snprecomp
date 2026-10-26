@@ -181,3 +181,20 @@ translation) loaded side by side through Load ROM, with a Start Game for each; p
 translation. Load Spanish ROM opens the picker. Not yet gone through: the checks under
 "Watch" and the SnP-specific features table.
 
+### Cones trading places (city stage, Display rate)
+
+Owner: the city stage's cones trade places on Android at Display rate (60, 90, 120 Hz), fine
+at Original; the PC is fine at every rate (STATUS.md, "Identical objects flickering": the fix
+numbers alike objects by matching them to last frame's, closest pairs first). Not threading
+(the hooks run in the game's task threads, one at a time). The numbering is plain float maths,
+the same on ARM, except one step: candidate pairs were sorted with `std::sort`, which leaves
+equal distances in whatever order the library likes, and libc++ (Android) orders them
+differently from the desktop libraries (checked here). Now `std::stable_sort` (all
+platforms). To check on the device.
+
+If not that: `adb shell setprop debug.snp.interplog 1`, start the game, play the cones for
+~20 s, quit, then `adb shell run-as io.github.wootbeer.snprecomp cat files/snp_interp.log >
+snp_interp.log`. Per display list: how old the instances drawn are (a different build/walk
+timing on Android would show there), and each object kind's numbering (positions, matches,
+distances). `SNP_INTERP_LOG=1` does the same on desktop.
+
