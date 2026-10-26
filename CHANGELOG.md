@@ -5,6 +5,8 @@
 ### Added
 - Music Volume and Sound Effects Volume on the Sound tab, next to Main Volume.
   Voices count as sound effects.
+- Texture Filtering on the Graphics tab: Sharp draws every texture with sharp
+  pixels, the crosshair and HUD too.
 
 ### Fixed
 - The city stage's cones sliding left and right with ghosting at framerates

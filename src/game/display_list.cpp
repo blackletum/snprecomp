@@ -217,6 +217,53 @@ namespace {
         set_command(rdram, fullsync_addr, 0xDE010000, suffix);
     }
 
+    // Texture Filtering: Sharp. Each render mode command that sets the
+    // texture filter (othermode bits 12 - 13) is set to point sampling, and
+    // what it was is kept by address: lists the game keeps get it back when
+    // the option is turned off.
+    constexpr uint32_t texture_filter_bits = 0x3000;
+    bool sharp_textures = false;
+    struct FilteredMode {
+        uint32_t w0, w1; // the game's
+        uint32_t sharp_w0, sharp_w1; // as set here
+    };
+    std::unordered_map<uint32_t, FilteredMode> filtered_modes;
+
+    void set_texture_filter(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
+        auto kept = filtered_modes.find(addr);
+        if (kept != filtered_modes.end()) {
+            if (kept->second.sharp_w0 != w0 || kept->second.sharp_w1 != w1) { // the game wrote something else here
+                filtered_modes.erase(kept);
+            }
+            else {
+                if (!sharp_textures) {
+                    set_command(rdram, addr, kept->second.w0, kept->second.w1);
+                    filtered_modes.erase(kept);
+                }
+                return;
+            }
+        }
+        if (!sharp_textures) {
+            return;
+        }
+        uint32_t sharp_w0 = w0, sharp_w1 = w1;
+        if ((w0 >> 24) == 0xEF) { // G_RDPSETOTHERMODE: othermode_H in w0's low 24 bits
+            sharp_w0 = w0 & ~texture_filter_bits;
+        }
+        else { // G_SETOTHERMODE_H (F3DEX2): w0 holds 32 - shift - length and length - 1
+            uint32_t length = (w0 & 0xFF) + 1;
+            uint32_t shift = 32 - ((w0 >> 8) & 0xFF) - length;
+            uint32_t mask = (length >= 32 ? 0xFFFFFFFFu : ((1u << length) - 1)) << shift;
+            if (mask & texture_filter_bits) {
+                sharp_w1 = w1 & ~texture_filter_bits;
+            }
+        }
+        if (sharp_w0 != w0 || sharp_w1 != w1) {
+            filtered_modes[addr] = { w0, w1, sharp_w0, sharp_w1 };
+            set_command(rdram, addr, sharp_w0, sharp_w1);
+        }
+    }
+
     // The warehouse in the intro (the soldiers among the crates) has its two
     // end walls, floor and ceiling but no side walls: a wider view sees past
     // the ends of the back wall, into black. Its list is called with a list
@@ -1163,6 +1210,11 @@ namespace {
                 default:
                     break;
             }
+            if ((w0 >> 24) == 0xE3 || (w0 >> 24) == 0xEF) {
+                set_texture_filter(rdram, addr, w0, w1);
+                w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+                w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            }
             if (log_frame) {
                 log_command(depth, rdram, w0, w1);
             }
@@ -1249,6 +1301,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
         MEM_W(0x30, task) = (int32_t)dl;
     }
     snp_extras_frame(rdram);
+    sharp_textures = snp::config::get_sharp_textures();
     bool widen = snp::get_widescreen_scale() > 1.0f;
     interp_bank = (interp_bank + 1) % interp_banks;
     interp_entry = 0;

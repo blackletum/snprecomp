@@ -27,6 +27,7 @@ namespace snp::config {
     void add_graphics_options(recomp::config::Config& graphics);
     uint32_t get_screen_filter();
     uint32_t get_bloom();
+    bool get_sharp_textures(); // Texture Filtering: Sharp
     // Texture Packs (Graphics tab): loads the texture_packs folder's Rice
     // packs, or none. Call once at startup; the option calls it on changes.
     void apply_texture_packs();

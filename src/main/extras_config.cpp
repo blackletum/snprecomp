@@ -1,6 +1,6 @@
-// The Enhancements and Cheats tabs of the menu, and Screen Filter, Bloom and
-// Texture Packs on the Graphics tab. The game reads the tabs through
-// src/game/extras.cpp.
+// The Enhancements and Cheats tabs of the menu, and Screen Filter, Bloom,
+// Texture Filtering and Texture Packs on the Graphics tab. The game reads the
+// tabs through src/game/extras.cpp.
 #include "snp_config.h"
 
 #include <filesystem>
@@ -38,6 +38,11 @@ namespace {
         {2, "High", "High"},
     };
 
+    const std::string texture_filter_id = "texture_filter";
+    const std::vector<recomp::config::ConfigOptionEnumOption> texture_filter_options = {
+        {0, "Smooth", "Smooth"},
+        {1, "Sharp", "Sharp"},
+    };
     const std::string texture_packs_id = "texture_packs";
 
     std::filesystem::path texture_packs_path() {
@@ -71,6 +76,13 @@ void snp::config::add_graphics_options(recomp::config::Config& graphics) {
     graphics_options_added = true;
     graphics.add_enum_option(screen_filter_id, "Screen Filter", "", screen_filter_options, 0);
     graphics.add_enum_option(bloom_id, "Bloom", "", bloom_options, 0);
+    graphics.add_enum_option(
+        texture_filter_id,
+        "Texture Filtering",
+        "Smooth is the game's own filtering. Sharp draws every texture with sharp pixels, "
+        "the HUD and the crosshair too.",
+        texture_filter_options, 0
+    );
     graphics.add_bool_option(
         texture_packs_id,
         "Texture Packs",
@@ -112,6 +124,13 @@ uint32_t snp::config::get_screen_filter() {
         return 0;
     }
     return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(screen_filter_id));
+}
+
+bool snp::config::get_sharp_textures() {
+    if (!graphics_options_added) {
+        return false;
+    }
+    return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(texture_filter_id)) == 1;
 }
 
 uint32_t snp::config::get_bloom() {

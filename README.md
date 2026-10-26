@@ -22,6 +22,7 @@ included.** You need your own dump of the game to build or play this.
 - Plays the Japanese ROM or an English translation of it.
 - Texture packs: RT64 packs and Rice packs made for emulators.
 - CRT, Scanlines and LCD screen filters, and bloom.
+- Sharp texture filtering, for crisp pixels.
 - Separate Music and Sound Effects volume.
 - Unlocks and cheats in the settings, no codes needed.
 - Add to Steam from the launcher, with artwork.
