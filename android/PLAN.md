@@ -281,3 +281,5 @@ The TOML has new hooks: regenerate the recompiled code with the desktop build an
 RecompiledFuncs/, RecompiledPatches/ and rsp/ again. Still open after the release: the
 screen filter on the HUD and crosshair only.
 
+Owner: 0.2.4 on the Retroid tested good (regenerated game code, Android Studio Run).
+
