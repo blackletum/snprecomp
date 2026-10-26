@@ -73,9 +73,10 @@ namespace {
     std::unordered_map<uint32_t, Kind> kinds;
 
     // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, or a file
-    // snp-interp-log in the app's storage, then start the game) writes snp_interp.log in the working directory (on Android the app's storage): for
-    // each display list, how old the instances it draws are, and how each kind of object with
-    // more than one instance drawn was numbered. For finding why alike objects trade places.
+    // snp-interp-log in the app's storage, then start the game) writes snp_interp.log in the
+    // working directory (on Android the app's storage): for each display list, how old the
+    // instances it draws are, and how each kind of object with more than one instance drawn
+    // was numbered. For finding why alike objects trade places.
     FILE* interp_log() {
         static FILE* file = [] {
             const char* v = std::getenv("SNP_INTERP_LOG");
