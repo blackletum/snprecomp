@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.4 Beta] - 2026-10-26
 
 ### Added
 - Music Volume and Sound Effects Volume on the Sound tab, next to Main Volume.
