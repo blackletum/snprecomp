@@ -61,6 +61,29 @@ fires (Touch Aim: Point, Fire While Touching), alongside a controller. Drag aims
 trackpad instead. The on-screen buttons (move, FIRE, JUMP, AIM, START, MENU) show when no
 controller is connected, or always or never as set there.
 
+## Release build
+
+Signed with your own release key, so updates install over each other (by hand or with an
+updater such as Obtainium, which takes the APK from the GitHub release). Every release must
+be signed with the same key and have a higher `versionCode` (`app/build.gradle.kts`, with
+`versionName` the same as the PC release's tag).
+
+One-time: make the key with the `keytool` that comes with Android Studio, outside the repo,
+and back the `.jks` file and its password up (a lost key means users must uninstall to
+update):
+
+    mkdir C:\keys
+    & "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore C:\keys\snp-release-key.jks -alias snp -keyalg RSA -keysize 4096 -validity 36500
+
+Then copy `keystore.properties.example` to `keystore.properties` here and fill in the
+passwords (gitignored).
+
+Each release, in `android/`: `.\gradlew assembleRelease`. The APK is
+`app/build/outputs/apk/release/SnPRecompiled-<version>-android.apk`; attach it to the
+GitHub release with the PC builds. A debug build (Run) is signed with Android Studio's debug
+key, so the release APK won't install over it: uninstall the debug build first (that also
+removes its settings, saves and stored ROM).
+
 ## Logs
 
 The game's output goes to logcat with the tag `SnP`:
