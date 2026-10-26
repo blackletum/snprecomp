@@ -22,9 +22,11 @@ set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 # recompiled game maths and for RT64's matrix decomposition used by frame interpolation.
 add_compile_options(-ffp-contract=off)
 
-# hlslpp (RT64's vector maths, also used by its frame interpolation) divides and takes square
-# roots on ARM with NEON estimates refined by Newton steps, where SSE (the desktop builds) is
-# exact. Test (android/PLAN.md, cones trading places): plain scalar maths, as exact as SSE.
+# hlslpp (RT64's vector maths, also used by its frame interpolation) as plain scalar maths,
+# not its NEON path: with NEON the city stage's cones traded places on in-between frames,
+# though the IDs RT64 got were the same as on PC (android/PLAN.md). Its NEON path computes
+# some things differently from the SSE one (reciprocals and others), and which of those tipped
+# RT64's interpolation wasn't narrowed down; scalar is exact and fixed it.
 add_compile_definitions(HLSLPP_SCALAR)
 
 include(FetchContent)

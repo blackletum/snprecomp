@@ -209,6 +209,14 @@ interpolation itself. Its code is the same as on PC except for hlslpp, its vecto
 on ARM uses NEON with division and square root from estimates plus Newton steps (SSE: exact).
 Interpolation decomposes matrices (scale from square roots, rotation), so a slightly
 different result can tip a borderline choice. Test: `HLSLPP_SCALAR` on Android
-(`cmake/Android.cmake`). If that fixes it, replace it with exact NEON division and square
-root (aarch64 has `vdivq_f32`, `vsqrtq_f32`) as an hlslpp patch, keeping NEON.
+(`cmake/Android.cmake`).
+
+Owner: with scalar hlslpp the cones are fine (a flicker as the stage first loads, then
+steady). Kept as the fix. (Correction to the above: on aarch64 hlslpp's division and square
+root are the native exact instructions, and its multiply-adds aren't fused with
+`-ffp-contract=off`; its NEON reciprocal and some other operations still differ from SSE's.
+Which one tipped RT64 wasn't narrowed down: each try needs a device run.) The cost is RT64's
+CPU-side vector maths without SIMD; watch busy scenes. Still to see: whether the flicker as
+the stage loads also happens on PC (likely the first frames, before there is a last frame to
+match, or a shader compiled on first use).
 
