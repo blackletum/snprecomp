@@ -30,6 +30,9 @@ namespace {
         uint32_t key = 0;
         float pos[3] = {};
         float axes[3][3] = {};
+        // Objects: where the display list puts it, its matrix combined with those it's drawn
+        // under (src/game/display_list.cpp), for telling apart alike ones at the same pos.
+        float place[3] = {};
         uint32_t number = 0;
         uint32_t built = 0; // generation
     };
@@ -64,6 +67,7 @@ namespace {
         float pos[3];
         float axes[3][3];
         float vel[3]; // since the time before
+        float place[3];
         uint32_t number;
     };
     struct Kind {
@@ -142,6 +146,7 @@ namespace {
     void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now, FILE* log) {
         struct Pair {
             float d;
+            float place_d; // breaks ties of d
             uint32_t now;
             uint32_t before;
         };
@@ -156,19 +161,25 @@ namespace {
                 const Placed& p = placed[j];
                 const float expected[3] = { p.pos[0] + p.vel[0], p.pos[1] + p.vel[1], p.pos[2] + p.vel[2] };
                 const float turn = 4.0f * orientation_difference(now[i]->axes, p.axes);
-                pairs.push_back({ distance2(now[i]->pos, expected) + turn * turn, i, j });
+                pairs.push_back({ distance2(now[i]->pos, expected) + turn * turn, distance2(now[i]->place, p.place), i, j });
             }
         }
         // Stable, so equal distances keep the order they were listed in (now, then before):
         // std::sort leaves ties to the library, and Android's (libc++) put them differently
         // from the desktop ones'.
-        std::stable_sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
+        // Alike objects under different parents can be at exactly the same pos in their own
+        // matrices (the city stage's cones): then where the display list puts them decides, or
+        // their numbers went by drawing order, and swapped when that changed.
+        std::stable_sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) {
+            return x.d < y.d || (x.d == y.d && x.place_d < y.place_d);
+        });
         std::vector<bool> numbered(now.size(), false);
         std::vector<bool> before_used(placed.size(), false);
         std::vector<Placed> next(now.size());
         for (uint32_t i = 0; i < now.size(); i++) {
             memcpy(next[i].pos, now[i]->pos, sizeof(next[i].pos));
             memcpy(next[i].axes, now[i]->axes, sizeof(next[i].axes));
+            memcpy(next[i].place, now[i]->place, sizeof(next[i].place));
             memset(next[i].vel, 0, sizeof(next[i].vel));
         }
         for (const Pair& pair : pairs) {
@@ -179,9 +190,12 @@ namespace {
             before_used[pair.before] = true;
             now[pair.now]->number = placed[pair.before].number;
             if (log != nullptr) {
-                std::fprintf(log, "  #%u at (%.1f %.1f %.1f) <- (%.1f %.1f %.1f) d %.1f\n", now[pair.now]->number,
+                std::fprintf(log, "  #%u at (%.1f %.1f %.1f) <- (%.1f %.1f %.1f) d %.1f, placed (%.1f %.1f %.1f) <- (%.1f %.1f %.1f)\n",
+                    now[pair.now]->number,
                     now[pair.now]->pos[0], now[pair.now]->pos[1], now[pair.now]->pos[2],
-                    placed[pair.before].pos[0], placed[pair.before].pos[1], placed[pair.before].pos[2], std::sqrt(pair.d));
+                    placed[pair.before].pos[0], placed[pair.before].pos[1], placed[pair.before].pos[2], std::sqrt(pair.d),
+                    now[pair.now]->place[0], now[pair.now]->place[1], now[pair.now]->place[2],
+                    placed[pair.before].place[0], placed[pair.before].place[1], placed[pair.before].place[2]);
             }
             for (int k = 0; k < 3; k++) {
                 next[pair.now].vel[k] = now[pair.now]->pos[k] - placed[pair.before].pos[k];
@@ -203,7 +217,8 @@ namespace {
                 now[i]->number = n;
                 numbered[i] = true;
                 if (log != nullptr) {
-                    std::fprintf(log, "  #%u at (%.1f %.1f %.1f) new\n", n, now[i]->pos[0], now[i]->pos[1], now[i]->pos[2]);
+                    std::fprintf(log, "  #%u at (%.1f %.1f %.1f) new, placed (%.1f %.1f %.1f)\n", n,
+                        now[i]->pos[0], now[i]->pos[1], now[i]->pos[2], now[i]->place[0], now[i]->place[1], now[i]->place[2]);
                 }
             }
             next[i].number = now[i]->number;
@@ -408,6 +423,17 @@ namespace snp {
             return;
         }
         it->second.key = (uint32_t)(((uint64_t)model * 0x9E3779B97F4A7C15ull) >> 32) | 0x80000001u;
+    }
+
+    // Where the display list puts an object (its matrix combined with those it's drawn under).
+    void interp_set_object_place(uint32_t instance, const float (&place)[3]) {
+        auto it = instances.find(instance);
+        if (it == instances.end() || !(instance & object_serials)) {
+            return;
+        }
+        for (int i = 0; i < 3; i++) {
+            it->second.place[i] = std::isfinite(place[i]) ? place[i] : 0.0f;
+        }
     }
 
     // The ID with its instance's number in it (an object's with its kind,

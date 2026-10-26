@@ -238,3 +238,17 @@ started again) calls an entry since filled with another load, so alike models we
 with each other's matrices. `src/game/display_list.cpp` now keeps each tagged command's
 original load by address and restores from that. Port to main once confirmed.
 
+Owner: still swapping with that, and the bad case can come on the first play too (the good
+first runs were luck); fine at Original (so drawing data is right, only pairing on in-between
+frames). The runtime hands RT64 one graphics task at a time, read before the next, so the
+tag banks can't be overwritten in use; the scratch areas are in RAM the game never uses. The
+restore record stays (it's right either way). The logs show the actual cause: the positions
+objects are numbered by are their own matrices' translations, local to the parent they're
+drawn under, and alike objects under different parents sit at exactly the same local place
+(kind E8413EC7 twice at (0 0 900), 91629509 twice at (0 0 180)). Ties go by drawing order,
+so when that changed the two traded numbers, and RT64 blended each between the two places on
+in-between frames (the log can't show it: numbers are handed out in drawing order). The
+display list walk now keeps the RSP's modelview matrix stack (G_MTX load / mul / push,
+G_POPMTX), records each object's combined place, and exact ties are broken by that. Other
+matching is unchanged. The log prints the places too.
+

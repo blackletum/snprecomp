@@ -30,6 +30,7 @@ namespace snp {
     void interp_walk_done(uint32_t untagged, uint32_t reused_entries);
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
     void interp_set_object_model(uint32_t instance, uint32_t model);
+    void interp_set_object_place(uint32_t instance, const float (&place)[3]);
 }
 
 bool snp_in_front_end_menus(); // src/game/overlay_loader.cpp
@@ -438,6 +439,58 @@ namespace {
         return 0;
     }
 
+    // The RSP's modelview matrix stack as the walk goes (row vectors, as the N64's: a load with
+    // G_MTX_MUL puts the new matrix in front of the top). Only for telling apart alike objects at
+    // the same place in their own matrix (instances of one model under different parents).
+    struct Matrix {
+        float m[4][4];
+    };
+    constexpr int modelview_depth = 32;
+    Matrix modelview[modelview_depth];
+    int modelview_top = 0;
+
+    Matrix identity_matrix() {
+        Matrix r{};
+        for (int i = 0; i < 4; i++) {
+            r.m[i][i] = 1.0f;
+        }
+        return r;
+    }
+
+    // An N64 Mtx (s15.16: 16 integer halves, then 16 fraction halves).
+    Matrix read_mtx(uint8_t* rdram, uint32_t mtx) {
+        Matrix r;
+        for (int i = 0; i < 16; i++) {
+            int32_t hi = (int16_t)((uint32_t)MEM_W((i / 2) * 4, (gpr)(int32_t)mtx) >> ((i & 1) ? 0 : 16));
+            uint32_t lo = (uint16_t)((uint32_t)MEM_W(32 + (i / 2) * 4, (gpr)(int32_t)mtx) >> ((i & 1) ? 0 : 16));
+            r.m[i / 4][i % 4] = (int32_t)(((uint32_t)hi << 16) | lo) / 65536.0f;
+        }
+        return r;
+    }
+
+    Matrix multiply(const Matrix& a, const Matrix& b) {
+        Matrix r{};
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 4; k++) {
+                    r.m[i][j] += a.m[i][k] * b.m[k][j];
+                }
+            }
+        }
+        return r;
+    }
+
+    // A modelview G_MTX (F3DEX2: its parameters with G_MTX_PUSH inverted).
+    void modelview_load(uint8_t* rdram, uint32_t w0, uint32_t w1) {
+        const uint32_t params = (w0 & 0xFF) ^ 1;
+        Matrix m = read_mtx(rdram, resolve(w1));
+        if ((params & 1) && modelview_top + 1 < modelview_depth) { // G_MTX_PUSH
+            modelview[modelview_top + 1] = modelview[modelview_top];
+            modelview_top++;
+        }
+        modelview[modelview_top] = (params & 2) ? m : multiply(m, modelview[modelview_top]); // G_MTX_LOAD or MUL
+    }
+
     // hud: loaded under the HUD's 2D projection (the reticle): drawn where the
     // game put it each frame, not interpolated, as the crosshair lines through
     // it are fill rectangles RT64 doesn't move between frames (and shots go
@@ -467,6 +520,9 @@ namespace {
         }
         if (instance != 0 && object) {
             snp::interp_set_object_model(instance, drawn_model(rdram, addr + 8));
+            const float (&row)[4] = modelview[modelview_top].m[3];
+            const float place[3] = { row[0], row[1], row[2] };
+            snp::interp_set_object_place(instance, place);
         }
         if (instance != 0) {
             instance_tags.push_back({ entry, id, instance, object });
@@ -1077,8 +1133,12 @@ namespace {
                         in_hud = (w1 == hud_projection);
                     }
                     else { // modelview
+                        modelview_load(rdram, w0, w1);
                         tag_matrix(rdram, addr, w0, w1, in_hud);
                     }
+                    break;
+                case 0xD8: // G_POPMTX: w1 / 64 matrices
+                    modelview_top = std::max(0, modelview_top - (int)(w1 / 64));
                     break;
                 default:
                     break;
@@ -1132,6 +1192,8 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     hud_entry = 0;
     fill_run_count = 0;
     instance_tags.clear();
+    modelview_top = 0;
+    modelview[0] = identity_matrix();
     walk(rdram, dl, 0, widen, true);
     end_fill_run(rdram);
     number_tagged_instances(rdram);
