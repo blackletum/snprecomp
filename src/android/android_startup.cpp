@@ -1,0 +1,163 @@
+#include "snp_android.h"
+
+#include <cstdio>
+#include <cstring>
+#include <thread>
+
+#include <android/log.h>
+#include <android/native_window_jni.h>
+#include <jni.h>
+#include <unistd.h>
+
+#include <filesystem>
+#include <system_error>
+
+#include "SDL2/SDL_events.h"
+#include "SDL2/SDL_gamecontroller.h"
+#include "SDL2/SDL_system.h"
+
+#include "plume/plume_render_interface_types.h"
+
+namespace {
+    // Android discards a native process's stdout and stderr; the game reports its problems
+    // there, so forward both to logcat line by line.
+    void forward_output_to_logcat() {
+        int pipe_fds[2];
+        if (pipe(pipe_fds) != 0) {
+            return;
+        }
+
+        setvbuf(stdout, nullptr, _IOLBF, 0);
+        setvbuf(stderr, nullptr, _IONBF, 0);
+        dup2(pipe_fds[1], STDOUT_FILENO);
+        dup2(pipe_fds[1], STDERR_FILENO);
+        close(pipe_fds[1]);
+
+        std::thread([read_fd = pipe_fds[0]]() {
+            char buf[1024];
+            size_t used = 0;
+            ssize_t got;
+            while ((got = read(read_fd, buf + used, sizeof(buf) - 1 - used)) > 0) {
+                used += got;
+                size_t start = 0;
+                for (size_t i = 0; i < used; i++) {
+                    if (buf[i] == '\n') {
+                        buf[i] = '\0';
+                        __android_log_write(ANDROID_LOG_INFO, "SnP", buf + start);
+                        start = i + 1;
+                    }
+                }
+                // Keep a partial line for the next read, or flush it if the buffer is full.
+                if (start == 0 && used == sizeof(buf) - 1) {
+                    buf[used] = '\0';
+                    __android_log_write(ANDROID_LOG_INFO, "SnP", buf);
+                    used = 0;
+                }
+                else {
+                    used -= start;
+                    memmove(buf, buf + start, used);
+                }
+            }
+        }).detach();
+    }
+}
+
+namespace {
+    // Logs the input devices as SDL sees them (game controller, or joystick with or without a
+    // controller mapping), for controller questions.
+    int log_input_devices(void*, SDL_Event* event) {
+        switch (event->type) {
+            case SDL_CONTROLLERDEVICEADDED:
+                fprintf(stderr, "Input: game controller added: %s\n", SDL_GameControllerNameForIndex(event->cdevice.which));
+                break;
+            case SDL_JOYDEVICEADDED:
+                fprintf(stderr, "Input: joystick added: %s (game controller mapping: %s)\n",
+                    SDL_JoystickNameForIndex(event->jdevice.which),
+                    SDL_IsGameController(event->jdevice.which) ? "yes" : "no");
+                break;
+        }
+        return 1;
+    }
+}
+
+namespace {
+    // SDL's activity class and its getNativeSurface(), looked up on SDL's main thread: a thread
+    // that native code attached to Java (like RT64's present thread) can't find app classes.
+    jclass sdl_activity_class = nullptr;
+    jmethodID get_native_surface = nullptr;
+    jmethodID surface_is_valid = nullptr;
+
+    // plume's window provider: the window behind SDL's current surface, with a reference of its
+    // own, or nullptr while the app is in the background and has no surface. Taken through Java
+    // instead of SDL's own pointer, which the UI thread releases when the surface goes away.
+    // After surfaceDestroyed() the Java Surface still hands out its old, abandoned window; any
+    // swap chain work on that fails, and on the device crashed the present thread, so a surface
+    // that isn't valid counts as none.
+    ANativeWindow* current_native_window() {
+        JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+        if (env == nullptr || sdl_activity_class == nullptr) {
+            return nullptr;
+        }
+        jobject surface = env->CallStaticObjectMethod(sdl_activity_class, get_native_surface);
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            return nullptr;
+        }
+        if (surface == nullptr) {
+            return nullptr;
+        }
+        const bool valid = env->CallBooleanMethod(surface, surface_is_valid);
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            env->DeleteLocalRef(surface);
+            return nullptr;
+        }
+        if (!valid) {
+            env->DeleteLocalRef(surface);
+            return nullptr;
+        }
+        ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
+        env->DeleteLocalRef(surface);
+        return window;
+    }
+
+    void install_window_provider() {
+        JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+        jclass local_class = env->FindClass("org/libsdl/app/SDLActivity");
+        if (local_class == nullptr) {
+            env->ExceptionClear();
+            fprintf(stderr, "Couldn't find SDLActivity; the picture won't come back after the app is in the background.\n");
+            return;
+        }
+        sdl_activity_class = static_cast<jclass>(env->NewGlobalRef(local_class));
+        env->DeleteLocalRef(local_class);
+        get_native_surface = env->GetStaticMethodID(sdl_activity_class, "getNativeSurface", "()Landroid/view/Surface;");
+        jclass surface_class = env->FindClass("android/view/Surface");
+        if (surface_class != nullptr) {
+            surface_is_valid = env->GetMethodID(surface_class, "isValid", "()Z");
+            env->DeleteLocalRef(surface_class);
+        }
+        if (get_native_surface == nullptr || surface_is_valid == nullptr) {
+            env->ExceptionClear();
+            sdl_activity_class = nullptr;
+            return;
+        }
+        plume::setAndroidWindowProvider(current_native_window);
+    }
+}
+
+void snp::android::startup() {
+    forward_output_to_logcat();
+    SDL_AddEventWatch(log_input_devices, nullptr);
+    install_window_provider();
+
+    const char* internal_path = SDL_AndroidGetInternalStoragePath();
+    if (internal_path == nullptr || chdir(internal_path) != 0) {
+        fprintf(stderr, "Couldn't change to the app storage folder: %s\n", SDL_GetError());
+    }
+
+    // Copies of the files last chosen in a file picker (SnPActivity.pickFilesForNative), such as a
+    // ROM the game has stored a copy of by now; nothing reads them after the pick.
+    std::error_code ec;
+    std::filesystem::remove_all("picked", ec);
+}

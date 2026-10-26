@@ -53,6 +53,7 @@
 #include "librecomp/game.hpp"
 #include "librecomp/helpers.hpp"
 
+#include "snp_android.h"
 #include "snp_config.h"
 #include "snp_mouse.h"
 
@@ -154,9 +155,18 @@ static ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callba
     uint32_t flags = SDL_WINDOW_RESIZABLE;
 #if defined(__APPLE__)
     flags |= SDL_WINDOW_METAL;
-#elif defined(RT64_SDL_WINDOW_VULKAN)
+#elif defined(RT64_SDL_WINDOW_VULKAN) || defined(__ANDROID__)
     // Linux only (CMakeLists.txt); Windows uses D3D12 through the HWND below.
+    // On Android the flag matters too: without a graphics flag SDL defaults to
+    // OpenGL there and connects an EGL surface to the window, after which
+    // Vulkan can't create its own surface on it.
     flags |= SDL_WINDOW_VULKAN;
+#endif
+#if defined(__ANDROID__)
+    // Always fullscreen on Android: SDL then hides the system bars (immersive
+    // mode), so the game gets the whole screen. The window mode setting goes
+    // through RT64, which has no Android path (lib-patches/RecompFrontend/0016).
+    flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #endif
 
     window = SDL_CreateWindow(program_name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, flags);
@@ -352,6 +362,17 @@ static ultramodern::input::connected_device_info_t get_connected_device_info(int
     };
 }
 
+#if defined(__ANDROID__)
+// Player 1 also gets the on-screen touch controls, unless one of the game's menus has the input.
+static bool get_n64_input_with_touch(int player_index, uint16_t* buttons_out, float* x_out, float* y_out) {
+    const bool got = recompinput::profiles::get_n64_input(player_index, buttons_out, x_out, y_out);
+    if ((player_index == 0) && !recompinput::game_input_disabled()) {
+        snp::android::add_touch_input(buttons_out);
+    }
+    return got;
+}
+#endif
+
 // --- Misc callbacks -----------------------------------------------------
 
 static std::string get_game_thread_name(const OSThread* t) {
@@ -449,6 +470,9 @@ static void start_quit_watchdog() {
 }
 
 int main(int argc, char** argv) {
+#if defined(__ANDROID__)
+    snp::android::startup();
+#endif
     std::set_terminate(report_unhandled_exception_and_abort);
 
     recomp::Version project_version{};
@@ -499,6 +523,9 @@ int main(int argc, char** argv) {
     snp::config::add_general_options(recompui::config::create_general_tab(general_tab_options));
     snp::config::add_graphics_options(recompui::config::create_graphics_tab());
     recompui::config::create_controls_tab();
+#if defined(__ANDROID__)
+    snp::config::add_touch_options(recompui::config::create_config_tab("Touch", "touch_controls", false));
+#endif
     recomp::config::Config& sound_tab = recompui::config::create_sound_tab();
     snp::config::add_sound_volume_options(sound_tab);
     snp::config::add_spanish_voices_option(sound_tab);
@@ -537,7 +564,11 @@ int main(int argc, char** argv) {
 
     ultramodern::input::callbacks_t input_callbacks{
         .poll_input = recompinput::poll_inputs,
+#if defined(__ANDROID__)
+        .get_input = get_n64_input_with_touch,
+#else
         .get_input = recompinput::profiles::get_n64_input,
+#endif
         .set_rumble = recompinput::set_rumble,
         .get_connected_device_info = get_connected_device_info,
     };

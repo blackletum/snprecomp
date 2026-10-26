@@ -227,14 +227,20 @@ namespace {
 
         // Controls and Mods are tabs of Settings.
         options->add_settings_option();
+#if !defined(__ANDROID__)
         options->add_option("Add to Steam", on_add_to_steam);
+#endif
         options->add_exit_option();
 
         // The title and the options under it, centred together in the window
         // (in percent of its height: an option row is about 7%), the options
         // no wider than their longest name.
         constexpr float title_height = 7.5f, gap = 6.0f, row_height = 7.05f;
+#if defined(__ANDROID__)
+        size_t rows = loaded.size() + 3; // starts, Load/Change ROM, Settings, Exit
+#else
         size_t rows = loaded.size() + 4; // starts, Load/Change ROM, Settings, Add to Steam, Exit
+#endif
         float block = title_height + gap + row_height * rows;
         float top = 50.0f - block / 2.0f;
         title_wrapper->set_top(top + title_height / 2.0f, recompui::Unit::Percent);
