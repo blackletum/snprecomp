@@ -649,3 +649,31 @@ axis, weighted 64 units each): a boss's energy fountains are alike spray
 layers in one place turned differently, and by place alone a layer could be
 paired with another and swirl on in-between frames. guMtxF2L's hook reads the
 float matrix's translation and axes itself.
+
+### Cones shifting with ghosting (the city stage, found on Android)
+
+The cones still shifted left and right with ghosting at Display rate, in some
+sessions and not others, on PC too; fine at Original. They stand in four spots
+drawn with two models (two frames of the cone, swapped from frame to frame),
+and a spot changes model between frames, so an object of one model was paired
+with its own model's object in another spot, 50-150 units away, and slid
+across on in-between frames. Kinds whose objects take over each other's exact
+spot (within 1 unit, with none of their own kind there) three times are now
+joined into one family, numbered and given IDs as one kind, so a cone keeps
+its number with either model, standing or kicked into the air; until then
+such an object gets a new number and is drawn where it is.
+
+Also found on the way (each harmless when it isn't the cause):
+- Equal distances in the pairing sort went by the library's order (std::sort;
+  Android's libc++ orders ties differently): now std::stable_sort.
+- A display list the game keeps had its tagged matrix loads restored from the
+  tag entries, which are reused every four graphics tasks: a kept list not
+  drawn for that long (the stage while its menu is up) got another load back.
+  The original loads are now kept by command address.
+- Objects at exactly the same place in their own matrix are told apart by
+  where the display list puts them (the walk keeps the modelview stack).
+
+`SNP_INTERP_LOG=1` writes snp_interp.log: per display list, the matrix
+lookups by outcome and how each kind of object with more than one drawn was
+numbered (on Android, the debug.snp.interplog property or a file
+snp-interp-log in the app's storage).
