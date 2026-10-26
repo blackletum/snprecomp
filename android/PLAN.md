@@ -306,3 +306,5 @@ Also: the launcher opened in portrait on that phone. With a resizable window and
 orientation hint, SDL requests FULL_USER, overriding the manifest's sensorLandscape;
 `snp::android::startup()` now sets `SDL_HINT_ORIENTATIONS` to both landscapes.
 
+Owner: works on the Motorola now (no crash, plays).
+
