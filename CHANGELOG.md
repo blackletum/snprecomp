@@ -9,6 +9,9 @@
   game's textures, or the crosshair, HUD and menus, with sharp pixels.
 - Menus Only for the screen filter on the Graphics tab: the filter in the menus,
   not in play.
+- Smooth Aiming on the Controls tab (on by default): the reticle moves at your
+  display's framerate, following the mouse, stick, light gun or touch, not just
+  the game's 30 frames a second.
 
 ### Fixed
 - The city stage's cones sliding left and right with ghosting at framerates

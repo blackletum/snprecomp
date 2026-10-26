@@ -21,6 +21,7 @@
 #include "recomp.h"
 
 #include "snp_config.h"
+#include "snp_mouse.h"
 #include "snp_recomp_hooks.h"
 
 namespace snp {
@@ -277,6 +278,92 @@ namespace {
             filtered_modes[addr] = { w0, w1, sharp_w0, sharp_w1 };
             set_command(rdram, addr, sharp_w0, sharp_w1);
         }
+    }
+
+    // Smooth Aiming (src/main/mouse.cpp): the reticle's matrix gets a live
+    // ID, which RT64 moves on every displayed frame to where the latest input
+    // puts it. Its crosshair lines are fill rectangles, which RT64 can't move:
+    // each is drawn instead as a quad (the same colour, from the combiner)
+    // under an identity matrix in that group, the full-length lines made long
+    // enough that moving them never shows an end. The rectangle's command is
+    // kept after the list's end, for lists the game keeps.
+    uint32_t live_id = 0; // this frame's, or 0
+    float live_x = 0.0f, live_y = 0.0f; // the reticle: offset from the centre, y up
+    constexpr uint32_t live_area = 0x807F5000;
+    constexpr uint32_t live_banks = 4;
+    constexpr uint32_t live_entries = 32;
+    constexpr uint32_t live_entry_bytes = 0xC0;
+    constexpr uint32_t live_identity = live_area; // an identity Mtx
+    constexpr uint32_t live_lists = live_area + 0x40;
+    constexpr uint32_t live_kept_command = 8 * 8;
+    constexpr uint32_t live_vertices = 12 * 8;
+    uint32_t live_bank = 0;
+    uint32_t live_entry = 0;
+
+    bool in_live_area(uint32_t addr) {
+        return addr >= live_lists && addr < live_lists + live_banks * live_entries * live_entry_bytes;
+    }
+
+    uint32_t still_matrix_params();
+
+    // Any other matrix group's ID kept out of the live IDs' range (RT64 would
+    // move it with the reticle).
+    uint32_t not_live(uint32_t id) {
+        return ((id & 0xFF000000u) == 0x5E000000u) ? (id ^ 0x01000000u) : id;
+    }
+
+    // A fill rectangle of the crosshair's lines through the reticle (each
+    // line is a 1-pixel grey rectangle in a black outline): its quad.
+    bool draw_crosshair_rect_live(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
+        if (live_entry >= live_entries) {
+            return false;
+        }
+        auto px = [](uint32_t v) { float p = v / 4.0f; return p >= 640.0f ? p - 1024.0f : p; }; // 12-bit x wraps left of 0
+        const float lrx = px((w0 >> 12) & 0xFFF), lry = (w0 & 0xFFF) / 4.0f;
+        const float ulx = px((w1 >> 12) & 0xFFF), uly = (w1 & 0xFFF) / 4.0f;
+        const float w = lrx - ulx, h = lry - uly;
+        const float line_x = 160.0f + live_x, line_y = 120.0f - live_y;
+        const bool across = std::fabs((uly + lry) * 0.5f - line_y) <= 2.5f && h <= 3.0f && (w >= 300.0f || w <= 2.0f);
+        const bool down = std::fabs((ulx + lrx) * 0.5f - line_x) <= 2.5f && w <= 3.0f && (h >= 200.0f || h <= 2.0f);
+        if (!across && !down) {
+            return false;
+        }
+        float left = ulx - 160.0f, right = lrx - 160.0f, top = 120.0f - uly, bottom = 120.0f - lry;
+        if (across && w >= 300.0f) {
+            left = -4000.0f;
+            right = 4000.0f;
+        }
+        if (down && h >= 200.0f) {
+            top = 4000.0f;
+            bottom = -4000.0f;
+        }
+        const uint32_t entry = live_lists + (live_bank * live_entries + live_entry) * live_entry_bytes;
+        live_entry++;
+        const float corners[4][2] = { { left, top }, { left, bottom }, { right, bottom }, { right, top } };
+        for (uint32_t i = 0; i < 4; i++) {
+            const uint32_t v = entry + live_vertices + i * 16;
+            const int16_t x = (int16_t)std::lround(corners[i][0]), y = (int16_t)std::lround(corners[i][1]);
+            MEM_W(0, (gpr)(int32_t)v) = (int32_t)(((uint32_t)(uint16_t)x << 16) | (uint16_t)y);
+            MEM_W(4, (gpr)(int32_t)v) = 0;
+            MEM_W(8, (gpr)(int32_t)v) = 0;
+            MEM_W(12, (gpr)(int32_t)v) = (int32_t)0xFFFFFFFF;
+        }
+        const uint32_t commands[9][2] = {
+            { 0x6400000C, live_id }, // gEXMatrixGroup, pushed
+            { still_matrix_params() | 1, 0 },
+            { 0xDA380002, live_identity }, // G_MTX: modelview, push, load
+            { 0x01004008, entry + live_vertices }, // G_VTX: 4
+            { 0x06000204, 0x00040600 }, // G_TRI2: as the reticle's quad
+            { 0xD8380002, 0x40 }, // G_POPMTX: 1
+            { 0x6400000D, 1 }, // gEXPopMatrixGroup
+            { 0xDF000000, 0 },
+            { w0, w1 }, // the game's rectangle (live_kept_command)
+        };
+        for (uint32_t i = 0; i < 9; i++) {
+            set_command(rdram, entry + i * 8, commands[i][0], commands[i][1]);
+        }
+        set_command(rdram, addr, 0xDE000000, entry);
+        return true;
     }
 
     // The warehouse in the intro (the soldiers among the crates) has its two
@@ -647,10 +734,15 @@ namespace {
         }
         uint32_t instance = 0;
         bool object = false;
-        uint32_t id = snp::interp_matrix_id(resolve(w1), instance, object);
+        uint32_t id = not_live(snp::interp_matrix_id(resolve(w1), instance, object));
         if (hud) {
             id = G_EX_ID_AUTO;
             instance = 0;
+            // The reticle (Smooth Aiming): its matrix puts it where the game has it.
+            const float (&row)[4] = modelview[modelview_top].m[3];
+            if (live_id != 0 && std::fabs(row[0] - live_x) < 1.0f && std::fabs(row[1] - live_y) < 1.0f) {
+                id = live_id;
+            }
         }
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
@@ -694,7 +786,7 @@ namespace {
         drawn.erase(std::unique(drawn.begin(), drawn.end()), drawn.end());
         snp::interp_number_instances(drawn);
         for (const InstanceTag& tag : instance_tags) {
-            set_command(rdram, tag.entry + 8, 0x6400000C, snp::interp_numbered_id(tag.id, tag.instance));
+            set_command(rdram, tag.entry + 8, 0x6400000C, not_live(snp::interp_numbered_id(tag.id, tag.instance)));
             set_command(rdram, tag.entry + 16, matrix_group_params(!tag.object, true), 0);
         }
         instance_tags.clear();
@@ -1103,6 +1195,13 @@ namespace {
                 w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
                 w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
             }
+            if ((w0 >> 24) == 0xDE && in_live_area(w1)) {
+                // A crosshair rectangle drawn live in an earlier frame: back to
+                // the game's command, drawn live again below.
+                w0 = (uint32_t)MEM_W(live_kept_command, (gpr)(int32_t)w1);
+                w1 = (uint32_t)MEM_W(live_kept_command + 4, (gpr)(int32_t)w1);
+                set_command(rdram, addr, w0, w1);
+            }
             if ((w0 >> 24) == 0xDE && in_interp_area(w1)) {
                 // A matrix load tagged in an earlier frame (a list the game
                 // keeps): back to the game's command, tagged again below.
@@ -1283,6 +1382,9 @@ namespace {
                     addr += 16;
                     break;
                 case 0xF6: // G_FILLRECT
+                    if (in_hud && live_id != 0 && draw_crosshair_rect_live(rdram, addr, w0, w1)) {
+                        break;
+                    }
                     if (widen && in_hud && !front_end) {
                         add_hud_rect(rdram, addr, w0, w1, 1);
                     }
@@ -1324,6 +1426,16 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     snp_extras_frame(rdram);
     sharp_textures = snp::config::get_sharp_textures();
     sharp_hud = snp::config::get_sharp_hud();
+    live_id = snp_in_front_end_menus() ? 0 : snp::mouse::live_reticle_id(rdram, live_x, live_y);
+    live_bank = (live_bank + 1) % live_banks;
+    live_entry = 0;
+    if (live_id != 0) {
+        // The identity matrix (s15.16: integer halves, then fractions).
+        const uint32_t identity[16] = { 0x00010000, 0, 0x00000001, 0, 0, 0x00010000, 0, 0x00000001, 0, 0, 0, 0, 0, 0, 0, 0 };
+        for (uint32_t i = 0; i < 16; i++) {
+            MEM_W(i * 4, (gpr)(int32_t)live_identity) = (int32_t)identity[i];
+        }
+    }
     pending_filter = 0;
     bool widen = snp::get_widescreen_scale() > 1.0f;
     interp_bank = (interp_bank + 1) % interp_banks;

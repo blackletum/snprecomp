@@ -48,6 +48,7 @@ namespace snp::config {
     enum class Option {
         UnlockOptions,
         AnalogAim,
+        SmoothAiming,
         InfiniteHealth,
         InfiniteTime,
         InfiniteContinues,

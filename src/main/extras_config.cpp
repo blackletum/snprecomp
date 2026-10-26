@@ -197,7 +197,16 @@ void snp::config::add_extras_tabs() {
         "Works best with Analog Aim on.",
         50.0, 200.0, 5.0, 0, true, 100.0
     );
+    enhancements.add_bool_option(
+        "smooth_aiming",
+        "Smooth Aiming",
+        "Moves the reticle at your display's framerate, following the mouse, stick, light gun "
+        "or touch as you aim. The game itself still aims 30 times a second, so a shot lands "
+        "at most a 30th of a second from where the reticle shows.",
+        true
+    );
     // On the Controls tab instead (lib-patches/RecompFrontend/0002).
+    recompui::config::show_option_on_controls_tab(enhancements_id, "smooth_aiming");
     recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
     recompui::config::show_option_on_controls_tab(enhancements_id, "stick_sensitivity");
 
@@ -218,6 +227,7 @@ bool snp::config::get_option(Option option) {
     switch (option) {
         case Option::UnlockOptions: return get_bool(enhancements_id, "unlock_options");
         case Option::AnalogAim: return get_bool(enhancements_id, "analog_aim");
+        case Option::SmoothAiming: return get_bool(enhancements_id, "smooth_aiming");
         case Option::InfiniteHealth: return get_bool(cheats_id, "infinite_health");
         case Option::InfiniteTime: return get_bool(cheats_id, "infinite_time");
         case Option::InfiniteContinues: return get_bool(cheats_id, "infinite_continues");
