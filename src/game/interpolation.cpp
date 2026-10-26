@@ -72,8 +72,8 @@ namespace {
     };
     std::unordered_map<uint32_t, Kind> kinds;
 
-    // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, then start the
-    // game) writes snp_interp.log in the working directory (on Android the app's storage): for
+    // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, or a file
+    // snp-interp-log in the app's storage, then start the game) writes snp_interp.log in the working directory (on Android the app's storage): for
     // each display list, how old the instances it draws are, and how each kind of object with
     // more than one instance drawn was numbered. For finding why alike objects trade places.
     FILE* interp_log() {
@@ -83,6 +83,12 @@ namespace {
 #if defined(__ANDROID__)
             char prop[PROP_VALUE_MAX] = "";
             on = on || (__system_property_get("debug.snp.interplog", prop) > 0 && prop[0] == '1');
+            // Or a file of that name in the app's storage (adb shell run-as <package> touch
+            // files/snp-interp-log), in case the property can't be read.
+            if (FILE* flag = std::fopen("snp-interp-log", "r")) {
+                std::fclose(flag);
+                on = true;
+            }
 #endif
             FILE* f = on ? std::fopen("snp_interp.log", "w") : nullptr;
             if (on) {
