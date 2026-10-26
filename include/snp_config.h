@@ -36,6 +36,8 @@ namespace snp::config {
     // The Enhancements and Cheats tabs (src/main/extras_config.cpp). Call
     // before recompui::config::finalize().
     void add_extras_tabs();
+    // Music Volume and Sound Effects Volume on the Sound tab (src/main/sound_volumes.cpp).
+    void add_sound_volume_options(recomp::config::Config& sound);
     // Spanish Voices on the Sound tab (src/main/spanish_voices.cpp).
     void add_spanish_voices_option(recomp::config::Config& sound);
     void lock_spanish_voices_option();

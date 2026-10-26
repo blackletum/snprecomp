@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Music Volume and Sound Effects Volume on the Sound tab, next to Main Volume.
+  Voices count as sound effects.
+
 ## [0.2.3 Beta] - 2026-10-25
 
 ### Fixed

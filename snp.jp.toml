@@ -283,3 +283,10 @@ text = "ctx->r2 = snp_rom_value(rdram, (uint32_t)ctx->r2, 0x8003ABA4, 0x3C02013C
 func = "func_8003A9CC"
 before_vram = 0x8003ABF8
 text = "ctx->r3 = snp_rom_value(rdram, (uint32_t)ctx->r3, 0x8003ABF0, 0x3C02013C, 0x8003ABF4, 0x24432C20); // snp: ROM constant"
+
+# func_80054B64: a track's volume, after the game's own volume, scaled by
+# Music Volume or Sound Effects Volume (src/main/sound_volumes.cpp).
+[[patches.hook]]
+func = "func_80054B64"
+before_vram = 0x80054BFC
+text = "ctx->r6 = snp_track_volume(rdram, (uint32_t)ctx->r17, (uint32_t)ctx->r6); // snp: music / sound effects volume"

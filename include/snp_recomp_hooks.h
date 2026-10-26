@@ -15,6 +15,10 @@ extern "C" {
 // code built value.
 uint32_t snp_rom_value(uint8_t* rdram, uint32_t value, uint32_t lui_addr, uint32_t lui_jp, uint32_t lo_addr, uint32_t lo_jp);
 
+// src/main/sound_volumes.cpp: a sound channel's volume scaled by Music
+// Volume or Sound Effects Volume.
+uint32_t snp_track_volume(uint8_t* rdram, uint32_t track, uint32_t volume);
+
 // src/game/overlay_loader.cpp: registers a code segment the game loaded.
 void snp_segment_loaded(uint8_t* rdram, int32_t args);
 
