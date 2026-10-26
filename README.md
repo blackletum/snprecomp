@@ -18,10 +18,13 @@ included.** You need your own dump of the game to build or play this.
 - High resolutions and framerates above 30 fps (experimental).
 - Mouse aim, Absolute (the reticle follows the pointer) or Relative.
 - Analog Aim for smoother aiming with a stick.
+- Smooth Aiming: the reticle moves at your display's framerate.
 - Twin-stick controller layout by default, fully remappable, and keyboard.
 - Plays the Japanese ROM or an English translation of it.
 - Texture packs: RT64 packs and Rice packs made for emulators.
 - CRT, Scanlines and LCD screen filters, and bloom.
+- Sharp texture filtering for the game and the HUD, each on its own.
+- Separate Music and Sound Effects volume.
 - Unlocks and cheats in the settings, no codes needed.
 - Add to Steam from the launcher, with artwork.
 

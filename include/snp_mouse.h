@@ -22,6 +22,10 @@ namespace snp::mouse {
     TouchAim get_touch_aim();
     void touch_aim_down(float x, float y, int view_w, int view_h);
     void touch_aim_move(float x, float y);
+
+    // Smooth Aiming: the RT64 live offset ID for the reticle this frame, with
+    // its position (x, y: offset from the screen centre, y up), or 0.
+    uint32_t live_reticle_id(uint8_t* rdram, float& x, float& y);
 }
 
 #endif

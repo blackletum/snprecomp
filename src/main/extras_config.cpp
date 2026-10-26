@@ -1,6 +1,6 @@
-// The Enhancements and Cheats tabs of the menu, and Screen Filter, Bloom and
-// Texture Packs on the Graphics tab. The game reads the tabs through
-// src/game/extras.cpp.
+// The Enhancements and Cheats tabs of the menu, and Screen Filter, Bloom,
+// Texture Filtering, HUD Filtering and Texture Packs on the Graphics tab. The
+// game reads the tabs through src/game/extras.cpp.
 #include "snp_config.h"
 
 #include <filesystem>
@@ -31,6 +31,7 @@ namespace {
         {3, "LCD", "LCD"},
     };
 
+    const std::string screen_filter_menus_id = "screen_filter_menus_only";
     const std::string bloom_id = "bloom";
     const std::vector<recomp::config::ConfigOptionEnumOption> bloom_options = {
         {0, "Off", "Off"},
@@ -38,6 +39,12 @@ namespace {
         {2, "High", "High"},
     };
 
+    const std::string texture_filter_id = "texture_filter";
+    const std::vector<recomp::config::ConfigOptionEnumOption> texture_filter_options = {
+        {0, "Smooth", "Smooth"},
+        {1, "Sharp", "Sharp"},
+    };
+    const std::string hud_filter_id = "hud_filter";
     const std::string texture_packs_id = "texture_packs";
 
     std::filesystem::path texture_packs_path() {
@@ -70,7 +77,26 @@ namespace {
 void snp::config::add_graphics_options(recomp::config::Config& graphics) {
     graphics_options_added = true;
     graphics.add_enum_option(screen_filter_id, "Screen Filter", "", screen_filter_options, 0);
+    graphics.add_bool_option(
+        screen_filter_menus_id,
+        "Menus Only",
+        "The screen filter in the menus only, not in play or the intro scenes.",
+        false
+    );
+    graphics.add_option_disable_dependency(screen_filter_menus_id, screen_filter_id, 0u);
     graphics.add_enum_option(bloom_id, "Bloom", "", bloom_options, 0);
+    graphics.add_enum_option(
+        texture_filter_id,
+        "Texture Filtering",
+        "The game's world: Smooth is the game's own filtering, Sharp draws its textures with sharp pixels.",
+        texture_filter_options, 0
+    );
+    graphics.add_enum_option(
+        hud_filter_id,
+        "HUD Filtering",
+        "The crosshair, HUD and menus: Smooth is the game's own filtering, Sharp draws them with sharp pixels.",
+        texture_filter_options, 0
+    );
     graphics.add_bool_option(
         texture_packs_id,
         "Texture Packs",
@@ -117,6 +143,27 @@ uint32_t snp::config::get_screen_filter() {
     return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(screen_filter_id));
 }
 
+bool snp::config::get_screen_filter_menus_only() {
+    if (!graphics_options_added) {
+        return false;
+    }
+    return std::get<bool>(recompui::config::get_graphics_config().get_option_value(screen_filter_menus_id));
+}
+
+bool snp::config::get_sharp_textures() {
+    if (!graphics_options_added) {
+        return false;
+    }
+    return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(texture_filter_id)) == 1;
+}
+
+bool snp::config::get_sharp_hud() {
+    if (!graphics_options_added) {
+        return false;
+    }
+    return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(hud_filter_id)) == 1;
+}
+
 uint32_t snp::config::get_bloom() {
     if (!graphics_options_added) {
         return 0;
@@ -153,7 +200,16 @@ void snp::config::add_extras_tabs() {
         "Works best with Analog Aim on.",
         50.0, 200.0, 5.0, 0, true, 100.0
     );
+    enhancements.add_bool_option(
+        "smooth_aiming",
+        "Smooth Aiming",
+        "Moves the reticle at your display's framerate, following the mouse, stick, light gun "
+        "or touch as you aim. The game itself still aims 30 times a second, so a shot lands "
+        "at most a 30th of a second from where the reticle shows.",
+        true
+    );
     // On the Controls tab instead (lib-patches/RecompFrontend/0002).
+    recompui::config::show_option_on_controls_tab(enhancements_id, "smooth_aiming");
     recompui::config::show_option_on_controls_tab(enhancements_id, "analog_aim");
     recompui::config::show_option_on_controls_tab(enhancements_id, "stick_sensitivity");
 
@@ -174,6 +230,7 @@ bool snp::config::get_option(Option option) {
     switch (option) {
         case Option::UnlockOptions: return get_bool(enhancements_id, "unlock_options");
         case Option::AnalogAim: return get_bool(enhancements_id, "analog_aim");
+        case Option::SmoothAiming: return get_bool(enhancements_id, "smooth_aiming");
         case Option::InfiniteHealth: return get_bool(cheats_id, "infinite_health");
         case Option::InfiniteTime: return get_bool(cheats_id, "infinite_time");
         case Option::InfiniteContinues: return get_bool(cheats_id, "infinite_continues");

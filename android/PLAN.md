@@ -270,3 +270,14 @@ a family once objects of each have taken over the other's exact spot 3 times (`f
 `note_takeover`): a family is numbered and given IDs as one kind, so a cone keeps its number
 with either model, standing or flying. Two kinds both drawn at a spot every frame never count.
 
+### Merge of main 0.2.4 and after (2026-10-26)
+
+Brought in: Music and Sound Effects Volume, the intro warehouse's side walls in widescreen,
+Texture Filtering and HUD Filtering, Screen Filter: Menus Only, and Smooth Aiming (RT64 0021,
+`live-offset`). This branch's shader descriptions patch moved to rt64 0022; all patches apply
+in order. Smooth Aiming's `live_offset` (`src/main/mouse.cpp`) takes a finger as it takes the
+mouse: Point like Absolute, Drag like Relative, a finger first. Version 0.2.4 (versionCode 2).
+The TOML has new hooks: regenerate the recompiled code with the desktop build and copy
+RecompiledFuncs/, RecompiledPatches/ and rsp/ again. Still open after the release: the
+screen filter on the HUD and crosshair only.
+

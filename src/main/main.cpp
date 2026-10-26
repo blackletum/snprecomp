@@ -80,7 +80,7 @@ namespace snp {
 
 static const std::string program_name = "Sin and Punishment Recompiled";
 static const std::u8string program_id = u8"snprecomp";
-static const std::string version_string = "0.2.3";
+static const std::string version_string = "0.2.4";
 
 template <typename... Ts>
 [[noreturn]] static void exit_error(const char* fmt, Ts... args) {
@@ -526,7 +526,9 @@ int main(int argc, char** argv) {
 #if defined(__ANDROID__)
     snp::config::add_touch_options(recompui::config::create_config_tab("Touch", "touch_controls", false));
 #endif
-    snp::config::add_spanish_voices_option(recompui::config::create_sound_tab());
+    recomp::config::Config& sound_tab = recompui::config::create_sound_tab();
+    snp::config::add_sound_volume_options(sound_tab);
+    snp::config::add_spanish_voices_option(sound_tab);
     recompui::config::create_mods_tab();
     snp::config::add_extras_tabs();
     recompui::config::finalize();

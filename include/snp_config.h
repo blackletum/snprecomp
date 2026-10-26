@@ -33,7 +33,10 @@ namespace snp::config {
     // ScreenFilter and Bloom values; src/main/extras_config.cpp).
     void add_graphics_options(recomp::config::Config& graphics);
     uint32_t get_screen_filter();
+    bool get_screen_filter_menus_only(); // Screen Filter: Menus Only
     uint32_t get_bloom();
+    bool get_sharp_textures(); // Texture Filtering: Sharp
+    bool get_sharp_hud(); // HUD Filtering: Sharp
     // Texture Packs (Graphics tab): loads the texture_packs folder's Rice
     // packs, or none. Call once at startup; the option calls it on changes.
     void apply_texture_packs();
@@ -43,6 +46,8 @@ namespace snp::config {
     // The Enhancements and Cheats tabs (src/main/extras_config.cpp). Call
     // before recompui::config::finalize().
     void add_extras_tabs();
+    // Music Volume and Sound Effects Volume on the Sound tab (src/main/sound_volumes.cpp).
+    void add_sound_volume_options(recomp::config::Config& sound);
     // Spanish Voices on the Sound tab (src/main/spanish_voices.cpp).
     void add_spanish_voices_option(recomp::config::Config& sound);
     void lock_spanish_voices_option();
@@ -50,6 +55,7 @@ namespace snp::config {
     enum class Option {
         UnlockOptions,
         AnalogAim,
+        SmoothAiming,
         InfiniteHealth,
         InfiniteTime,
         InfiniteContinues,
