@@ -76,6 +76,31 @@ namespace {
     };
     std::unordered_map<uint32_t, Kind> kinds;
 
+    // Every object drawn in the latest display list: its kind and pos. An object can be drawn
+    // with another model from one frame to the next (the city stage's cones: two models, each
+    // spot drawn with either), so one that's now exactly where another kind's was is that one
+    // drawn anew, not one of its own kind come from elsewhere.
+    struct ObjectPlace {
+        uint32_t kind;
+        float pos[3];
+    };
+    std::vector<ObjectPlace> last_object_places;
+    constexpr float same_spot = 1.0f;
+
+    bool at_another_kinds_spot(uint32_t kind, const float* pos) {
+        bool other = false;
+        for (const ObjectPlace& p : last_object_places) {
+            float dx = p.pos[0] - pos[0], dy = p.pos[1] - pos[1], dz = p.pos[2] - pos[2];
+            if (dx * dx + dy * dy + dz * dz <= same_spot * same_spot) {
+                if (p.kind == kind) {
+                    return false;
+                }
+                other = true;
+            }
+        }
+        return other;
+    }
+
     // SNP_INTERP_LOG=1 (on Android: adb shell setprop debug.snp.interplog 1, or a file
     // snp-interp-log in the app's storage, then start the game) writes snp_interp.log in the
     // working directory (on Android the app's storage): for each display list, how old the
@@ -143,7 +168,7 @@ namespace {
     // layers in one place apart, not to outweigh a real distance (spinning
     // parts, turned anew every frame, swapped numbers 80 units apart and
     // blended into each other in the intro).
-    void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now, FILE* log) {
+    void number_kind(std::vector<Placed>& placed, const std::vector<Instance*>& now, bool objects, FILE* log) {
         struct Pair {
             float d;
             float place_d; // breaks ties of d
@@ -154,6 +179,13 @@ namespace {
         const float max_distance = 256.0f;
         std::vector<Pair> pairs;
         for (uint32_t i = 0; i < now.size(); i++) {
+            // Taken over from an object of another kind: a new number, drawn where it is.
+            if (objects && at_another_kinds_spot(now[i]->key, now[i]->pos)) {
+                if (log != nullptr) {
+                    std::fprintf(log, "  (at (%.1f %.1f %.1f): another kind's spot last time)\n", now[i]->pos[0], now[i]->pos[1], now[i]->pos[2]);
+                }
+                continue;
+            }
             for (uint32_t j = 0; j < placed.size(); j++) {
                 if (distance2(now[i]->pos, placed[j].pos) > max_distance * max_distance) {
                     continue;
@@ -384,12 +416,14 @@ namespace snp {
     // Once a display list has been walked: number the instances it draws.
     void interp_number_instances(const std::vector<uint32_t>& drawn) {
         std::unordered_map<uint32_t, std::vector<Instance*>> by_kind;
+        std::unordered_map<uint32_t, bool> object_kind; // kinds of objects, not skeletons
         FILE* log = interp_log();
         uint32_t ages[4] = {};
         for (uint32_t serial : drawn) {
             auto it = instances.find(serial);
             if (it != instances.end()) {
                 by_kind[it->second.key].push_back(&it->second);
+                object_kind[it->second.key] = (serial & object_serials) != 0;
                 ages[std::min<uint32_t>(generation - it->second.built, 3)]++;
             }
         }
@@ -405,11 +439,21 @@ namespace snp {
                 k.placed.clear();
             }
             k.generation = generation;
-            FILE* kind_log = (log != nullptr && (kind.first & object_serials) && kind.second.size() > 1) ? log : nullptr;
+            const bool objects = object_kind[kind.first];
+            FILE* kind_log = (log != nullptr && objects && kind.second.size() > 1) ? log : nullptr;
             if (kind_log != nullptr) {
                 std::fprintf(kind_log, " kind %08X: %zu now, %zu before\n", kind.first, kind.second.size(), k.placed.size());
             }
-            number_kind(k.placed, kind.second, kind_log);
+            number_kind(k.placed, kind.second, objects, kind_log);
+        }
+        last_object_places.clear();
+        for (auto& kind : by_kind) {
+            if (!object_kind[kind.first]) {
+                continue;
+            }
+            for (const Instance* inst : kind.second) {
+                last_object_places.push_back({ kind.first, { inst->pos[0], inst->pos[1], inst->pos[2] } });
+            }
         }
     }
 

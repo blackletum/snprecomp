@@ -252,3 +252,14 @@ display list walk now keeps the RSP's modelview matrix stack (G_MTX load / mul /
 G_POPMTX), records each object's combined place, and exact ties are broken by that. Other
 matching is unchanged. The log prints the places too.
 
+Owner: still there; it's the cones shifting left and right with ghosting, also with the camera
+still, nothing else. The places in the log equal the local positions (these objects are
+loaded, not multiplied onto a parent; the camera is in the projection), so that tie-break
+did nothing here (kept: harmless). The log shows the real cause: the four cones stand in four
+spots (x -75, -25, 25, 75 at z -450), drawn with two models (kinds 8043C575 and E42124E1, two
+frames of the cone, it seems), and a spot changes model from frame to frame. A model's object
+in one spot was then paired with its own model's object in another spot, 50-150 units away,
+and RT64 slid it across on in-between frames, back and forth. Now an object exactly (within
+1 unit) where another kind's object was last time, and no object of its own kind, gets a new
+number: drawn where it is. (`last_object_places`, `src/game/interpolation.cpp`.)
+
