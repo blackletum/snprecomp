@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <unordered_map>
 #include <vector>
 
 #include "recomp.h"
@@ -26,7 +27,7 @@ namespace snp {
     void interp_new_frame(); // interpolation.cpp
     uint32_t interp_matrix_id(uint32_t addr, uint32_t& instance, bool& object);
     void interp_number_instances(const std::vector<uint32_t>& drawn);
-    void interp_walk_done(uint32_t untagged);
+    void interp_walk_done(uint32_t untagged, uint32_t reused_entries);
     uint32_t interp_numbered_id(uint32_t id, uint32_t instance);
     void interp_set_object_model(uint32_t instance, uint32_t model);
 }
@@ -355,6 +356,13 @@ namespace {
         return addr >= interp_area && addr < interp_area + interp_banks * interp_bank_bytes;
     }
 
+    // The game's matrix load each tagged command replaced, by the command's address. Read back
+    // from here, not from the tag entry: a list the game keeps but doesn't draw for a few
+    // frames (a stage's scenery while the game is left and the stage started again) still
+    // calls an entry that a later frame has since filled with another load, and restoring that
+    // drew alike models with each other's matrices (the city stage's cones traded places).
+    std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> tagged_loads;
+
     // gEXMatrixGroup parameters. Skeleton (limb) matrices always interpolate
     // and are blended entry by entry: the game's bone matrices are skewed, and
     // decomposing them warped limbs on in-between frames. A numbered object
@@ -404,6 +412,7 @@ namespace {
     };
     std::vector<InstanceTag> instance_tags;
     uint32_t interp_untagged = 0; // matrix loads this frame past the tag area (for the log)
+    uint32_t interp_reused_entries = 0; // tagged loads whose entry held another load (the log)
 
     // The model a matrix load draws: the first vertices or display list
     // after it, before the next matrix (0 if none). Loads tagged in an earlier
@@ -463,14 +472,16 @@ namespace {
             instance_tags.push_back({ entry, id, instance, object });
         }
         interp_entry++;
+        tagged_loads[addr] = { w0, w1 };
         set_command(rdram, addr, 0xDE000000, entry);
     }
 
     // After the walk: number the instances this display list draws (all at
     // once) and put the numbers into their matrices' IDs.
     void number_tagged_instances(uint8_t* rdram) {
-        snp::interp_walk_done(interp_untagged);
+        snp::interp_walk_done(interp_untagged, interp_reused_entries);
         interp_untagged = 0;
+        interp_reused_entries = 0;
         if (instance_tags.empty()) {
             return;
         }
@@ -897,6 +908,14 @@ namespace {
                 uint32_t entry = w1;
                 w0 = (uint32_t)MEM_W(3 * 8, (gpr)(int32_t)entry);
                 w1 = (uint32_t)MEM_W(3 * 8 + 4, (gpr)(int32_t)entry);
+                auto original = tagged_loads.find(addr);
+                if (original != tagged_loads.end()) {
+                    if (original->second.first != w0 || original->second.second != w1) {
+                        interp_reused_entries++;
+                    }
+                    w0 = original->second.first;
+                    w1 = original->second.second;
+                }
                 set_command(rdram, addr, w0, w1);
             }
             if (widen) {

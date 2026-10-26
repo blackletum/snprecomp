@@ -350,17 +350,18 @@ namespace snp {
     }
 
     // Once a display list has been walked, before its instances are numbered: logs its matrix
-    // lookups (and how many matrix loads didn't fit the tag area, left untagged).
-    void interp_walk_done(uint32_t untagged) {
+    // lookups, how many matrix loads didn't fit the tag area (left untagged), and how many kept
+    // ones called a tag entry since reused for another load (restored from the record).
+    void interp_walk_done(uint32_t untagged, uint32_t reused_entries) {
         if (FILE* log = interp_log()) {
             // Quitting ends the process without flushing files, so the last display list's
             // lines go out now.
             std::fflush(log);
             std::fprintf(log, "generation %u: lookups found 0/1/2 lists ago %u %u %u, stale 3/4/5/6+ %u %u %u %u, "
-                "unrecorded %u, untagged %u\n", generation,
+                "unrecorded %u, untagged %u, reused entries %u\n", generation,
                 lookups.found[0], lookups.found[1], lookups.found[2],
                 lookups.stale[0], lookups.stale[1], lookups.stale[2], lookups.stale[3],
-                lookups.unrecorded, untagged);
+                lookups.unrecorded, untagged, reused_entries);
         }
         lookups = {};
     }

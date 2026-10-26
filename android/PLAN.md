@@ -228,3 +228,13 @@ CPU-side vector maths without SIMD; watch busy scenes. Still to see: whether the
 the stage loads also happens on PC (likely the first frames, before there is a last frame to
 match, or a shader compiled on first use).
 
+Owner: the PC build does it too, after quitting and starting the level again. So not Android:
+a bug in the cone fix (main's too). Likely cause, fixed (to test): every matrix load is
+replaced with a call into a tag entry (4 banks, one per graphics task, reused in turn) that
+holds its ID and the game's load. A list the game keeps (scenery) still holds that call the
+next time it's walked, and the walk restored the game's load by reading it back from the
+entry. A kept list not drawn for 4 or more tasks (the stage while the game is left and
+started again) calls an entry since filled with another load, so alike models were restored
+with each other's matrices. `src/game/display_list.cpp` now keeps each tagged command's
+original load by address and restores from that. Port to main once confirmed.
+
