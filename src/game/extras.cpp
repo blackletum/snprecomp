@@ -18,6 +18,8 @@
 #include "snp_config.h"
 #include "snp_recomp_hooks.h"
 
+bool snp_in_front_end_menus(); // src/game/overlay_loader.cpp
+
 namespace {
     constexpr uint32_t time_addr = 0x800D5A94;
     constexpr uint32_t health_addr = 0x800D5A98;
@@ -44,7 +46,10 @@ extern "C" void snp_extras_frame(uint8_t* rdram) {
     using snp::config::Option;
     using snp::config::get_option;
 
-    RT64::setScreenFilter(static_cast<RT64::ScreenFilter>(snp::config::get_screen_filter()));
+    // Menus Only: the filter in the menus (the front end), not in play or the
+    // intro scenes (played like stages).
+    bool filter_off = snp::config::get_screen_filter_menus_only() && !snp_in_front_end_menus();
+    RT64::setScreenFilter(filter_off ? RT64::ScreenFilter::None : static_cast<RT64::ScreenFilter>(snp::config::get_screen_filter()));
     RT64::setBloom(static_cast<RT64::Bloom>(snp::config::get_bloom()));
 
     if (get_option(Option::InfiniteHealth)) {

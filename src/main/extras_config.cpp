@@ -31,6 +31,7 @@ namespace {
         {3, "LCD", "LCD"},
     };
 
+    const std::string screen_filter_menus_id = "screen_filter_menus_only";
     const std::string bloom_id = "bloom";
     const std::vector<recomp::config::ConfigOptionEnumOption> bloom_options = {
         {0, "Off", "Off"},
@@ -76,6 +77,13 @@ namespace {
 void snp::config::add_graphics_options(recomp::config::Config& graphics) {
     graphics_options_added = true;
     graphics.add_enum_option(screen_filter_id, "Screen Filter", "", screen_filter_options, 0);
+    graphics.add_bool_option(
+        screen_filter_menus_id,
+        "Menus Only",
+        "The screen filter in the menus only, not in play or the intro scenes.",
+        false
+    );
+    graphics.add_option_disable_dependency(screen_filter_menus_id, screen_filter_id, 0u);
     graphics.add_enum_option(bloom_id, "Bloom", "", bloom_options, 0);
     graphics.add_enum_option(
         texture_filter_id,
@@ -130,6 +138,13 @@ uint32_t snp::config::get_screen_filter() {
         return 0;
     }
     return std::get<uint32_t>(recompui::config::get_graphics_config().get_option_value(screen_filter_id));
+}
+
+bool snp::config::get_screen_filter_menus_only() {
+    if (!graphics_options_added) {
+        return false;
+    }
+    return std::get<bool>(recompui::config::get_graphics_config().get_option_value(screen_filter_menus_id));
 }
 
 bool snp::config::get_sharp_textures() {

@@ -26,6 +26,7 @@ namespace snp::config {
     // ScreenFilter and Bloom values; src/main/extras_config.cpp).
     void add_graphics_options(recomp::config::Config& graphics);
     uint32_t get_screen_filter();
+    bool get_screen_filter_menus_only(); // Screen Filter: Menus Only
     uint32_t get_bloom();
     bool get_sharp_textures(); // Texture Filtering: Sharp
     bool get_sharp_hud(); // HUD Filtering: Sharp

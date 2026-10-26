@@ -7,6 +7,8 @@
   Voices count as sound effects.
 - Texture Filtering and HUD Filtering on the Graphics tab: Sharp draws the
   game's textures, or the crosshair, HUD and menus, with sharp pixels.
+- Menus Only for the screen filter on the Graphics tab: the filter in the menus,
+  not in play.
 
 ### Fixed
 - The city stage's cones sliding left and right with ghosting at framerates
