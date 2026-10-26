@@ -217,46 +217,61 @@ namespace {
         set_command(rdram, fullsync_addr, 0xDE010000, suffix);
     }
 
-    // Texture Filtering: Sharp. Each render mode command that sets the
-    // texture filter (othermode bits 12 - 13) is set to point sampling, and
-    // what it was is kept by address: lists the game keeps get it back when
-    // the option is turned off.
+    // Texture Filtering and HUD Filtering: Sharp. A render mode command that
+    // sets the texture filter (othermode bits 12 - 13) is the HUD's if the
+    // first thing drawn after it is a rectangle or under the HUD's 2D
+    // projection (the crosshair), else the scenery's; when that option is on
+    // it's set to point sampling. What it was is kept by address: lists the
+    // game keeps get it back when the option is turned off.
     constexpr uint32_t texture_filter_bits = 0x3000;
     bool sharp_textures = false;
+    bool sharp_hud = false;
+    uint32_t pending_filter = 0; // the latest such command, until something is drawn
     struct FilteredMode {
         uint32_t w0, w1; // the game's
         uint32_t sharp_w0, sharp_w1; // as set here
     };
     std::unordered_map<uint32_t, FilteredMode> filtered_modes;
 
-    void set_texture_filter(uint8_t* rdram, uint32_t addr, uint32_t w0, uint32_t w1) {
+    bool sets_texture_filter(uint32_t w0) {
+        if ((w0 >> 24) == 0xEF) { // G_RDPSETOTHERMODE: othermode_H in w0's low 24 bits
+            return true;
+        }
+        if ((w0 >> 24) != 0xE3) {
+            return false;
+        }
+        // G_SETOTHERMODE_H (F3DEX2): w0 holds 32 - shift - length and length - 1.
+        uint32_t length = (w0 & 0xFF) + 1;
+        uint32_t shift = 32 - ((w0 >> 8) & 0xFF) - length;
+        uint32_t mask = (length >= 32 ? 0xFFFFFFFFu : ((1u << length) - 1)) << shift;
+        return (mask & texture_filter_bits) != 0;
+    }
+
+    void set_texture_filter(uint8_t* rdram, uint32_t addr, bool sharp) {
+        uint32_t w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
+        uint32_t w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
         auto kept = filtered_modes.find(addr);
         if (kept != filtered_modes.end()) {
             if (kept->second.sharp_w0 != w0 || kept->second.sharp_w1 != w1) { // the game wrote something else here
                 filtered_modes.erase(kept);
             }
             else {
-                if (!sharp_textures) {
+                if (!sharp) {
                     set_command(rdram, addr, kept->second.w0, kept->second.w1);
                     filtered_modes.erase(kept);
                 }
                 return;
             }
         }
-        if (!sharp_textures) {
+        if (!sharp) {
             return;
         }
         uint32_t sharp_w0 = w0, sharp_w1 = w1;
-        if ((w0 >> 24) == 0xEF) { // G_RDPSETOTHERMODE: othermode_H in w0's low 24 bits
+        if ((w0 >> 24) == 0xEF) {
             sharp_w0 = w0 & ~texture_filter_bits;
         }
-        else { // G_SETOTHERMODE_H (F3DEX2): w0 holds 32 - shift - length and length - 1
-            uint32_t length = (w0 & 0xFF) + 1;
-            uint32_t shift = 32 - ((w0 >> 8) & 0xFF) - length;
-            uint32_t mask = (length >= 32 ? 0xFFFFFFFFu : ((1u << length) - 1)) << shift;
-            if (mask & texture_filter_bits) {
-                sharp_w1 = w1 & ~texture_filter_bits;
-            }
+        else {
+            sharp_w1 = w1 & ~texture_filter_bits;
         }
         if (sharp_w0 != w0 || sharp_w1 != w1) {
             filtered_modes[addr] = { w0, w1, sharp_w0, sharp_w1 };
@@ -1210,10 +1225,16 @@ namespace {
                 default:
                     break;
             }
-            if ((w0 >> 24) == 0xE3 || (w0 >> 24) == 0xEF) {
-                set_texture_filter(rdram, addr, w0, w1);
-                w0 = (uint32_t)MEM_W(0, (gpr)(int32_t)addr);
-                w1 = (uint32_t)MEM_W(4, (gpr)(int32_t)addr);
+            if (sets_texture_filter(w0)) {
+                pending_filter = addr;
+            }
+            else if (pending_filter != 0) {
+                const uint32_t op = w0 >> 24;
+                const bool rect = op == 0xE4 || op == 0xE5;
+                if (rect || op == 0x05 || op == 0x06 || op == 0x07) {
+                    set_texture_filter(rdram, pending_filter, (rect || in_hud) ? sharp_hud : sharp_textures);
+                    pending_filter = 0;
+                }
             }
             if (log_frame) {
                 log_command(depth, rdram, w0, w1);
@@ -1302,6 +1323,8 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     }
     snp_extras_frame(rdram);
     sharp_textures = snp::config::get_sharp_textures();
+    sharp_hud = snp::config::get_sharp_hud();
+    pending_filter = 0;
     bool widen = snp::get_widescreen_scale() > 1.0f;
     interp_bank = (interp_bank + 1) % interp_banks;
     interp_entry = 0;
