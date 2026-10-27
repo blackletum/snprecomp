@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.6 Beta] - 2026-10-27
 
 ### Fixed
 - Android: the app closed on start on the Galaxy S24 Ultra (Snapdragon 8 Gen 3)

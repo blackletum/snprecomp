@@ -351,3 +351,4 @@ Which three fail isn't known yet; if they're post-processing (bicubic scaling, b
 are the first three created) the game should run without those effects, if they're core (RSP,
 texture decode) it will show nothing, but not crash, and the next shared log names them.
 
+Released in 0.2.6 (versionCode 4) to reach the S24 user; untested on an S24 before release.
