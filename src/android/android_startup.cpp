@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <string>
 #include <system_error>
 
 #include "SDL2/SDL_events.h"
@@ -20,13 +21,19 @@
 #include "plume/plume_render_interface_types.h"
 
 namespace {
+    // log.txt stops growing past this; what's wrong usually shows early, or ends in a crash
+    // report (crash_log.txt).
+    constexpr long max_log_bytes = 8 * 1024 * 1024;
+
     // Android discards a native process's stdout and stderr; the game reports its problems
-    // there, so forward both to logcat line by line.
-    void forward_output_to_logcat() {
+    // there, so forward both to logcat line by line, and to log_path (log.txt in the app's
+    // storage), which players can share (SnPActivity, LogFiles.java).
+    void forward_output(const std::string& log_path) {
         int pipe_fds[2];
         if (pipe(pipe_fds) != 0) {
             return;
         }
+        FILE* log = log_path.empty() ? nullptr : fopen(log_path.c_str(), "w");
 
         setvbuf(stdout, nullptr, _IOLBF, 0);
         setvbuf(stderr, nullptr, _IONBF, 0);
@@ -34,7 +41,18 @@ namespace {
         dup2(pipe_fds[1], STDERR_FILENO);
         close(pipe_fds[1]);
 
-        std::thread([read_fd = pipe_fds[0]]() {
+        std::thread([read_fd = pipe_fds[0], log]() {
+            long logged = 0;
+            auto write_line = [&](const char* line) {
+                __android_log_write(ANDROID_LOG_INFO, "SnP", line);
+                if (log != nullptr && logged < max_log_bytes) {
+                    // Flushed every line: what was written survives a crash.
+                    fputs(line, log);
+                    fputc('\n', log);
+                    fflush(log);
+                    logged += long(strlen(line)) + 1;
+                }
+            };
             char buf[1024];
             size_t used = 0;
             ssize_t got;
@@ -44,14 +62,14 @@ namespace {
                 for (size_t i = 0; i < used; i++) {
                     if (buf[i] == '\n') {
                         buf[i] = '\0';
-                        __android_log_write(ANDROID_LOG_INFO, "SnP", buf + start);
+                        write_line(buf + start);
                         start = i + 1;
                     }
                 }
                 // Keep a partial line for the next read, or flush it if the buffer is full.
                 if (start == 0 && used == sizeof(buf) - 1) {
                     buf[used] = '\0';
-                    __android_log_write(ANDROID_LOG_INFO, "SnP", buf);
+                    write_line(buf);
                     used = 0;
                 }
                 else {
@@ -148,7 +166,8 @@ namespace {
 }
 
 void snp::android::startup() {
-    forward_output_to_logcat();
+    const char* internal_path = SDL_AndroidGetInternalStoragePath();
+    forward_output(internal_path != nullptr ? std::string(internal_path) + "/log.txt" : std::string());
     SDL_AddEventWatch(log_input_devices, nullptr);
     install_window_provider();
 
@@ -156,7 +175,6 @@ void snp::android::startup() {
     // orientation, overriding the manifest's sensorLandscape, so the launcher could open in portrait.
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 
-    const char* internal_path = SDL_AndroidGetInternalStoragePath();
     if (internal_path == nullptr || chdir(internal_path) != 0) {
         fprintf(stderr, "Couldn't change to the app storage folder: %s\n", SDL_GetError());
     }

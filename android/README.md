@@ -86,7 +86,12 @@ removes its settings, saves and stored ROM).
 
 ## Logs
 
-The game's output goes to logcat with the tag `SnP`:
+Players can share the game's log without a computer: after a crash the next start asks whether
+to share it (before the game starts again, so it works when the game crashes at once), and the
+app icon's long-press menu has **Share log**. Both send one text file with the device, the app's
+version, and the latest and the previous run's `log.txt` and `crash_log.txt` (`LogFiles.java`).
+
+The game's output also goes to logcat with the tag `SnP`:
 
     adb logcat -s SnP
 

@@ -446,6 +446,10 @@ static void start_quit_watchdog() {
         while (!exited.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
+#if defined(__ANDROID__)
+        // A quit, not a crash: no "closed unexpectedly" at the next start (LogFiles.java).
+        std::remove("running");
+#endif
         std::this_thread::sleep_for(std::chrono::seconds(3));
         fflush(stdout);
         fflush(stderr);

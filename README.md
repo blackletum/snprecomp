@@ -123,6 +123,8 @@ Else:
 - Please see the "Issues" section in GitHub. Screenshots or a short video
   help a lot.
 - If the game crashes, attach `crash_log.txt` from the game's folder.
+- Android: after a crash, the app offers to share its log the next time it
+  starts. Or long-press the app icon and choose **Share log** at any time.
 
 ## Changes
 See [CHANGELOG.md](CHANGELOG.md).

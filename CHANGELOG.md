@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- Android: Share log. After a crash the app offers to share the game's log the
+  next time it starts, and the app icon's long-press menu has Share log. The
+  log has the device's model and graphics driver and the game's messages.
+
 ### Fixed
 - Android: the game crashed after the Nintendo logo on phones with older
   Adreno GPUs (Adreno 619 and similar), whose drivers can't compile one of the

@@ -308,3 +308,26 @@ orientation hint, SDL requests FULL_USER, overriding the manifest's sensorLandsc
 
 Owner: works on the Motorola now (no crash, plays).
 
+### Share log (2026-10-26)
+
+So players can send logs without adb (the S24 Ultra report had none). The game's output goes to
+`log.txt` in app storage as well as logcat (`forward_output`, `src/android/android_startup.cpp`;
+flushed per line, capped at 8 MB). `LogFiles.java`: at the start of a run the last run's
+`log.txt` and `crash_log.txt` become `log_previous.txt` and `crash_log_previous.txt`; a
+`running` marker exists while the activity is resumed (so closing from recent apps isn't a crash)
+and the game's quit watchdog removes it on a quit (`src/main/main.cpp`). A marker found at start
+means the last run crashed: a dialog offers Share / Not now, and the game is held back meanwhile
+(SDL starts it only once the activity's window has focus; `mHasFocus` is cleared), so a game that
+crashes at once can still share. Share, and the icon's long-press shortcut **Share log**
+(`ShareLogActivity`, doesn't start the game), send one text file (device, SoC, Android and app
+version, both runs' crash reports and the last 1 MB of each log) through `LogProvider`, a
+read-only provider with access by the share's grant only (no AndroidX in this app).
+
+Also: the crash handler read no registers on ARM (the report said "Fault offset: 0x0 in unknown
+module"); it now takes pc and sp from the aarch64 context, so a report names the library that
+crashed (e.g. the GPU driver) and the stack scan starts at the right place.
+
+To test: the shortcut with and without the game running; a crash (while playing: `adb shell run-as
+io.github.wootbeer.snprecomp kill -SEGV <pid>`, pid from `adb shell pidof io.github.wootbeer.snprecomp`) then the dialog at the next start; Not now and Share both start the game;
+the shared file opens in the app it went to.
+
