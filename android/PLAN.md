@@ -374,3 +374,4 @@ whose report it would overwrite) and, on Linux and Android, adds the host call s
 `_Unwind_Backtrace` (module+offset, symbol where exported). Tested on desktop Linux with a test
 program: abort, segfault, and fatal error then abort.
 
+Released in 0.2.7 (versionCode 5); the S24 user's result is still to come.

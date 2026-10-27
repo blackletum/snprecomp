@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.7 Beta] - 2026-10-27
 
 ### Fixed
 - Android: on phones whose graphics drivers can't compile the renderer's
