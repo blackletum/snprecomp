@@ -7,6 +7,7 @@
 // Release builds have no console, so a message box points testers at the log.
 #include <algorithm>
 #include <cinttypes>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -21,6 +22,7 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <ucontext.h>
+#include <unwind.h>
 #include <unistd.h>
 #endif
 
@@ -37,6 +39,9 @@ namespace {
     uint8_t* rdram_base = nullptr;
     // The faulting thread's host call stack, named from the PDB (Windows).
     char host_frames[4096] = "";
+    // Set once snp_report_fatal_error has written its report, which then aborts: the abort's own
+    // report would overwrite it with less.
+    volatile sig_atomic_t fatal_error_reported = 0;
 
     // Debug builds link incrementally: function pointers point at `jmp rel32`
     // thunks rather than the bodies. Follow one if present.
@@ -374,7 +379,48 @@ namespace {
         return EXCEPTION_CONTINUE_SEARCH;
     }
 #elif defined(__linux__)
+    // The host call stack from the signal handler through the frames that faulted, by the unwind
+    // tables (on Android these also cover the signal frame), as module+offset and, where exported,
+    // symbol+offset.
+    _Unwind_Reason_Code add_host_frame(_Unwind_Context* context, void* used_void) {
+        size_t& used = *static_cast<size_t*>(used_void);
+        uintptr_t pc = (uintptr_t)_Unwind_GetIP(context);
+        if (pc == 0 || used + 256 >= sizeof(host_frames)) {
+            return _URC_END_OF_STACK;
+        }
+        Dl_info dl{};
+        int n;
+        if (dladdr((void*)pc, &dl) != 0 && dl.dli_fname != nullptr) {
+            if (dl.dli_sname != nullptr && dl.dli_saddr != nullptr) {
+                n = snprintf(host_frames + used, sizeof(host_frames) - used, "  %s+0x%" PRIxPTR " (%s+0x%" PRIxPTR ")\n",
+                    file_name(dl.dli_fname), pc - (uintptr_t)dl.dli_fbase, dl.dli_sname, pc - (uintptr_t)dl.dli_saddr);
+            }
+            else {
+                n = snprintf(host_frames + used, sizeof(host_frames) - used, "  %s+0x%" PRIxPTR "\n",
+                    file_name(dl.dli_fname), pc - (uintptr_t)dl.dli_fbase);
+            }
+        }
+        else {
+            n = snprintf(host_frames + used, sizeof(host_frames) - used, "  0x%" PRIxPTR "\n", pc);
+        }
+        if (n > 0) {
+            used += (size_t)n;
+        }
+        return _URC_NO_REASON;
+    }
+
+    void host_backtrace() {
+        size_t used = 0;
+        _Unwind_Backtrace(add_host_frame, &used);
+    }
+
     void signal_handler(int sig, siginfo_t* info, void* uctx_void) {
+        // Already reported (an uncaught C++ exception, then std::abort).
+        if (sig == SIGABRT && fatal_error_reported) {
+            signal(sig, SIG_DFL);
+            raise(sig);
+            return;
+        }
         ucontext_t* uctx = static_cast<ucontext_t*>(uctx_void);
 #if defined(__x86_64__)
         uintptr_t pc = (uintptr_t)uctx->uc_mcontext.gregs[REG_RIP];
@@ -385,7 +431,8 @@ namespace {
 #else
         uintptr_t pc = 0, sp = (uintptr_t)&uctx;
 #endif
-        const char* what = sig == SIGSEGV ? "segmentation fault" : sig == SIGBUS ? "bus error" : sig == SIGILL ? "illegal instruction" : "floating point exception";
+        const char* what = sig == SIGSEGV ? "segmentation fault" : sig == SIGBUS ? "bus error" : sig == SIGILL ? "illegal instruction" :
+            sig == SIGABRT ? "abort (the game or a library it uses, such as the graphics driver, gave up)" : "floating point exception";
         if (is_shutdown_fault(sig == SIGSEGV || sig == SIGBUS, (uintptr_t)info->si_addr)) {
             _exit(0);
         }
@@ -402,6 +449,7 @@ namespace {
             .access = (uintptr_t)info->si_addr,
             .write = false,
         };
+        host_backtrace();
         write_reports(fault, sp);
         signal(sig, SIG_DFL);
         raise(sig);
@@ -413,6 +461,7 @@ namespace {
 // exception reaching std::terminate: writes crash_log.txt and, on Windows,
 // shows the crash message (release builds have no console for stderr).
 void snp_report_fatal_error(const char* message) {
+    fatal_error_reported = 1;
     for (FILE* out : { stderr, fopen("crash_log.txt", "w") }) {
         if (out == nullptr) {
             continue;
@@ -449,7 +498,7 @@ void snp_install_crash_handler(const SectionTableEntry* sections, size_t num_sec
     sa.sa_sigaction = signal_handler;
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
     sigemptyset(&sa.sa_mask);
-    for (int sig : { SIGSEGV, SIGBUS, SIGILL, SIGFPE }) {
+    for (int sig : { SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT }) {
         sigaction(sig, &sa, nullptr);
     }
 #endif

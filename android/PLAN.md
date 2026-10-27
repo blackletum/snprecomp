@@ -352,3 +352,25 @@ are the first three created) the game should run without those effects, if they'
 texture decode) it will show nothing, but not crash, and the next shared log names them.
 
 Released in 0.2.6 (versionCode 4) to reach the S24 user; untested on an S24 before release.
+
+Two logs from the S24 user on 0.2.6: the game starts and the opening levels play, but it closes
+in the How to Play demo, with no crash report. The failing pipelines are fbReadAnyChanges,
+fbReadAnyFull, fbWriteColor, fbWriteDepth and fbWriteDepthMS (the framebuffer copies between the
+GPU and RDRAM). Disassembling all 57 compiled shaders: these five are the only ones that write an
+R32ui storage resource (`RWTexture2D<uint>` or `RWBuffer<uint>`); they're also the only ones
+including FbCommon.hlsli, but neither -O0 (FbWriteDepth isn't built with it, fbReinterpret is
+and compiles) nor read-only typed buffers (RSPProcess has many) explain it.
+
+rt64 0025: if one of the five fails, its SPIR-V is copied with the format of R32ui storage
+images and texel buffers set to Unknown and the StorageImageWrite/ReadWithoutFormat capabilities
+added (plume enables every feature the device has), and tried again; the log says whether that
+compiled. Normal devices never take this path. (DXC's `[[vk::image_format("unknown")]]` is
+ignored by the bundled DXC 1.8.4461, hence the rewrite.) Checked: the five rewritten shaders pass
+spirv-val for Vulkan 1.0, and the C++ rewrite gives the same bytes as a Python prototype.
+
+The closes leave no crash report: the crash handler didn't catch SIGABRT, which drivers raise
+when they give up. `src/main/crash_handler.cpp` now catches it (not after snp_report_fatal_error,
+whose report it would overwrite) and, on Linux and Android, adds the host call stack from
+`_Unwind_Backtrace` (module+offset, symbol where exported). Tested on desktop Linux with a test
+program: abort, segfault, and fatal error then abort.
+

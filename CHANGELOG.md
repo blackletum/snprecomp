@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Android: on phones whose graphics drivers can't compile the renderer's
+  framebuffer effects (the Galaxy S24 Ultra), the game tries them again in a
+  form those drivers may accept. These effects are used in some demos and
+  transitions.
+
+### Changed
+- Crash reports also cover aborts (a library, such as the graphics driver,
+  giving up), and on Linux and Android they list the call stack.
+
 ## [0.2.6 Beta] - 2026-10-27
 
 ### Fixed

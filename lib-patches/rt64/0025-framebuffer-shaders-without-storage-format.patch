@@ -1,0 +1,102 @@
+--- a/src/render/rt64_shader_library.cpp
++++ b/src/render/rt64_shader_library.cpp
+@@ -4,6 +4,10 @@
+ 
+ #include "rt64_shader_library.h"
+ 
++#include <cstring>
++#include <iterator>
++#include <vector>
++
+ #include "common/rt64_common.h"
+ #include "shared/rt64_bloom.h"
+ #include "shared/rt64_render_target_copy.h"
+@@ -194,6 +198,57 @@
+         }
+     }
+ 
++    // A copy of SPIR-V with the format of its R32ui storage images and texel buffers left unknown, which
++    // the device allows (plume enables every feature it has, writing storage images without a format too).
++    static std::vector<uint32_t> spirvWithoutUintStorageFormat(const void *spirv, uint64_t spirvSize) {
++        const uint32_t OpCapability = 17;
++        const uint32_t OpTypeImage = 25;
++        const uint32_t ImageFormatUnknown = 0;
++        const uint32_t ImageFormatR32ui = 33;
++        const uint32_t CapabilityStorageImageReadWithoutFormat = 55;
++        const uint32_t CapabilityStorageImageWriteWithoutFormat = 56;
++        const size_t headerWords = 5;
++        std::vector<uint32_t> words(spirvSize / sizeof(uint32_t));
++        memcpy(words.data(), spirv, words.size() * sizeof(uint32_t));
++        for (size_t i = headerWords; i < words.size();) {
++            const uint32_t opcode = words[i] & 0xFFFFU;
++            const uint32_t wordCount = words[i] >> 16U;
++            if ((wordCount == 0) || ((i + wordCount) > words.size())) {
++                break;
++            }
++
++            // OpTypeImage: result, sampled type, dim, depth, arrayed, multisampled, sampled (2: storage), format.
++            if ((opcode == OpTypeImage) && (wordCount >= 9) && (words[i + 7] == 2) && (words[i + 8] == ImageFormatR32ui)) {
++                words[i + 8] = ImageFormatUnknown;
++            }
++
++            i += wordCount;
++        }
++
++        // Capabilities come first, right after the header.
++        const uint32_t capabilities[] = {
++            (2U << 16U) | OpCapability, CapabilityStorageImageWriteWithoutFormat,
++            (2U << 16U) | OpCapability, CapabilityStorageImageReadWithoutFormat
++        };
++
++        words.insert(words.begin() + headerWords, std::begin(capabilities), std::end(capabilities));
++        return words;
++    }
++
++    // Some drivers fail to compile the framebuffer shaders that write R32ui storage resources (Adreno 750,
++    // driver 512.762). Vulkan only: if the pipeline failed, try the shader again with their format unknown.
++    static void retryWithoutUintStorageFormat(RenderDevice *device, RenderShaderFormat shaderFormat, const char *name, ShaderRecord &record, const void *spirv, uint64_t spirvSize) {
++        if ((shaderFormat != RenderShaderFormat::SPIRV) || ((record.pipeline != nullptr) && record.pipeline->isValid())) {
++            return;
++        }
++
++        const std::vector<uint32_t> words = spirvWithoutUintStorageFormat(spirv, spirvSize);
++        std::unique_ptr<RenderShader> shader = device->createShader(words.data(), words.size() * sizeof(uint32_t), "CSMain", shaderFormat);
++        record.pipeline = device->createComputePipeline(RenderComputePipelineDesc(record.pipelineLayout.get(), shader.get(), 8, 8, 1));
++        const bool valid = (record.pipeline != nullptr) && record.pipeline->isValid();
++        fprintf(stderr, "[RT64] The %s pipeline %s without a storage format.\n", name, valid ? "compiled" : "also failed to compile");
++    }
++
+     void ShaderLibrary::setupCommonShaders(RenderInterface *rhi, RenderDevice *device) {
+         assert(rhi != nullptr);
+         assert(device != nullptr);
+@@ -414,10 +469,12 @@
+             std::unique_ptr<RenderShader> anyChangesShader = device->createShader(CREATE_SHADER_INPUTS(FbReadAnyChangesCSBlobDXIL, FbReadAnyChangesCSBlobSPIRV, FbReadAnyChangesCSBlobMSL, "CSMain", shaderFormat));
+             fbReadAnyChanges.pipeline = device->createComputePipeline(RenderComputePipelineDesc(fbReadAnyChanges.pipelineLayout.get(), anyChangesShader.get(), 8, 8, 1));
+             logIfFailed("fbReadAnyChanges", fbReadAnyChanges.pipeline.get());
++            retryWithoutUintStorageFormat(device, shaderFormat, "fbReadAnyChanges", fbReadAnyChanges, FbReadAnyChangesCSBlobSPIRV, std::size(FbReadAnyChangesCSBlobSPIRV));
+ 
+             std::unique_ptr<RenderShader> fullShader = device->createShader(CREATE_SHADER_INPUTS(FbReadAnyFullCSBlobDXIL, FbReadAnyFullCSBlobSPIRV, FbReadAnyFullCSBlobMSL, "CSMain", shaderFormat));
+             fbReadAnyFull.pipeline = device->createComputePipeline(RenderComputePipelineDesc(fbReadAnyFull.pipelineLayout.get(), fullShader.get(), 8, 8, 1));
+             logIfFailed("fbReadAnyFull", fbReadAnyFull.pipeline.get());
++            retryWithoutUintStorageFormat(device, shaderFormat, "fbReadAnyFull", fbReadAnyFull, FbReadAnyFullCSBlobSPIRV, std::size(FbReadAnyFullCSBlobSPIRV));
+         }
+ 
+         // Framebuffer Reinterpretation.
+@@ -451,14 +508,17 @@
+             std::unique_ptr<RenderShader> colorShader = device->createShader(CREATE_SHADER_INPUTS(FbWriteColorCSBlobDXIL, FbWriteColorCSBlobSPIRV, FbWriteColorCSBlobMSL, "CSMain", shaderFormat));
+             fbWriteColor.pipeline = device->createComputePipeline(RenderComputePipelineDesc(fbWriteColor.pipelineLayout.get(), colorShader.get(), 8, 8, 1));
+             logIfFailed("fbWriteColor", fbWriteColor.pipeline.get());
++            retryWithoutUintStorageFormat(device, shaderFormat, "fbWriteColor", fbWriteColor, FbWriteColorCSBlobSPIRV, std::size(FbWriteColorCSBlobSPIRV));
+ 
+             std::unique_ptr<RenderShader> depthShader = device->createShader(CREATE_SHADER_INPUTS(FbWriteDepthCSBlobDXIL, FbWriteDepthCSBlobSPIRV, FbWriteDepthCSBlobMSL, "CSMain", shaderFormat));
+             fbWriteDepth.pipeline = device->createComputePipeline(RenderComputePipelineDesc(fbWriteDepth.pipelineLayout.get(), depthShader.get(), 8, 8, 1));
+             logIfFailed("fbWriteDepth", fbWriteDepth.pipeline.get());
++            retryWithoutUintStorageFormat(device, shaderFormat, "fbWriteDepth", fbWriteDepth, FbWriteDepthCSBlobSPIRV, std::size(FbWriteDepthCSBlobSPIRV));
+ 
+             std::unique_ptr<RenderShader> depthShaderMS = device->createShader(CREATE_SHADER_INPUTS(FbWriteDepthCSMSBlobDXIL, FbWriteDepthCSMSBlobSPIRV, FbWriteDepthCSMSBlobMSL, "CSMain", shaderFormat));
+             fbWriteDepthMS.pipeline = device->createComputePipeline(RenderComputePipelineDesc(fbWriteDepthMS.pipelineLayout.get(), depthShaderMS.get(), 8, 8, 1));
+             logIfFailed("fbWriteDepthMS", fbWriteDepthMS.pipeline.get());
++            retryWithoutUintStorageFormat(device, shaderFormat, "fbWriteDepthMS", fbWriteDepthMS, FbWriteDepthCSMSBlobSPIRV, std::size(FbWriteDepthCSMSBlobSPIRV));
+         }
+ 
+         // Gaussian filter.
