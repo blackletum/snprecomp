@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.5 Beta] - 2026-10-27
 
 ### Added
 - Android: Share log. After a crash the app offers to share the game's log the

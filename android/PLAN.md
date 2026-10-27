@@ -331,3 +331,6 @@ To test: the shortcut with and without the game running; a crash (while playing:
 io.github.wootbeer.snprecomp kill -SEGV <pid>`, pid from `adb shell pidof io.github.wootbeer.snprecomp`) then the dialog at the next start; Not now and Share both start the game;
 the shared file opens in the app it went to.
 
+Owner: all of that works on the Motorola. Released in 0.2.5 (versionCode 3) with the Adreno 619
+fix and landscape only.
+
