@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Android: the app closed on start on the Galaxy S24 Ultra (Snapdragon 8 Gen 3)
+  and possibly other phones with newer Adreno drivers, which fail to compile
+  some of the renderer's effects. The game now skips what failed instead of
+  crashing, and the log names it.
+
 ## [0.2.5 Beta] - 2026-10-27
 
 ### Added

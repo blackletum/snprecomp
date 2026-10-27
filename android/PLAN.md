@@ -334,3 +334,20 @@ the shared file opens in the app it went to.
 Owner: all of that works on the Motorola. Released in 0.2.5 (versionCode 3) with the Adreno 619
 fix and landscape only.
 
+### Closes at start on the Galaxy S24 Ultra (2026-10-27)
+
+The Reddit report's Share log (0.2.5): Samsung SM-S928U, SM8650 (Adreno 750), Android 17, Vulkan
+driver 0x802fa001 (512.762). Three `vkCreateComputePipelines` fail with VK_ERROR_UNKNOWN while
+RT64 sets up its shader library, then a segfault in `vulkan.adreno.so` at 0xfa5d0, reading 0x100,
+before the launcher draws (the best-effort stack scan also lists func_80048310; the fault
+itself is in the driver). Plume 0006
+skips binding a failed pipeline, but the dispatch after it still went to the driver with no
+compute pipeline bound.
+
+plume 0007: the command list remembers whether its bound compute and graphics pipelines are
+valid and skips dispatches and draws while they aren't. rt64 0024: each of the shader library's
+37 pipelines that fails is named in the log ("[RT64] The <name> pipeline failed to compile.").
+Which three fail isn't known yet; if they're post-processing (bicubic scaling, box filter, bloom
+are the first three created) the game should run without those effects, if they're core (RSP,
+texture decode) it will show nothing, but not crash, and the next shared log names them.
+
