@@ -23,6 +23,15 @@
 // frame gone by (src/main/mouse.cpp's live_offset). Slots 1-3; player 1's
 // reticle is slot 0. A slot stops after 0.2 s without a call, and does
 // nothing with Smooth Aiming off.
+//
+// snp_draw_overlay: a display list the mod wants drawn at the end of each
+// frame in play, after the HUD (src/game/display_list.cpp). It's called with
+// extended RDRAM on, so it and everything it points to can be in the mod's
+// own memory (K0 addresses, 0x8xxxxxxx; not segments). It must set all the
+// state it needs: it comes after whatever the frame left. Give the newest
+// list once a game frame and keep it unchanged until the next call (build
+// into two buffers in turn); NULL stops it. It also stops after 0.2 s
+// without a call.
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -73,6 +82,10 @@ namespace {
     bool fresh(const LiveReticle& r, double now) {
         return r.active && now - r.time <= 0.2;
     }
+
+    // The mod's overlay list (snp_draw_overlay), under live_mutex.
+    uint32_t overlay_list = 0;
+    double overlay_time = 0.0;
 
     uint32_t player_count() {
         if (recompinput::players::is_single_player_mode()) {
@@ -190,9 +203,26 @@ bool snp::mod_live_offset(uint32_t slot, float game_x, float game_y, float* dx, 
     return true;
 }
 
+// snp_draw_overlay(const void* display_list)
+extern "C" void snp_draw_overlay(uint8_t* rdram, recomp_context* ctx) {
+    uint32_t list = (uint32_t)_arg<0, PTR(void)>(rdram, ctx);
+    std::lock_guard lock(live_mutex);
+    overlay_list = (list & 0x80000000u) ? list : 0;
+    overlay_time = now_seconds();
+}
+
+uint32_t snp::mod_overlay_list() {
+    std::lock_guard lock(live_mutex);
+    if (overlay_list == 0 || now_seconds() - overlay_time > 0.2) {
+        return 0;
+    }
+    return overlay_list;
+}
+
 void snp::register_mod_exports() {
     recomp::overlays::register_base_export("snp_get_player_count", snp_get_player_count);
     recomp::overlays::register_base_export("snp_get_player_pad", snp_get_player_pad);
     recomp::overlays::register_base_export("snp_set_live_reticle", snp_set_live_reticle);
+    recomp::overlays::register_base_export("snp_draw_overlay", snp_draw_overlay);
     register_printf_export();
 }

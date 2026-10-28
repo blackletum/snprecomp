@@ -10,6 +10,8 @@
   player's controller from a mod, and `snp_set_live_reticle`, which gives a
   mod's crosshair Smooth Aiming like player 1's (`include/snp_mod_api.h`).
 - For modders: `recomp_printf`, printing to `mod_log.txt` next to the game.
+- For modders: `snp_draw_overlay`, to draw from a mod after the HUD, with the
+  mod's own memory reachable (RT64's extended RDRAM).
 
 ## [0.2.7 Beta] - 2026-10-27
 

@@ -719,8 +719,21 @@ template's flags: doubles and 64-bit integers in an aligned pair of slots,
 high word first, past a3 on the caller's stack) and was tested on the host
 with every conversion.
 
+An overlay for mods (`snp_draw_overlay`): a display list a mod gives once a
+game frame, drawn at the end of each frame in play, after the HUD. Mods are
+loaded from 0x81000000, past the N64's 8 MB, where an N64 address wraps back
+to the start of RAM; RT64's extended RDRAM (`gEXSetRDRAMExtended`) takes
+0x8xxxxxxx addresses as offsets into all of it instead. So the walker turns
+the frame's full sync into a branch to a suffix (0x807FA000, 8 slots used in
+turn): gEXEnable, extended RDRAM on, a call to the mod's list, extended RDRAM
+off, the full sync. Only in frames that loaded the HUD's 2D projection, outside
+the front end's menus, and only while the mod keeps calling (0.2 s). The
+mod's list is walked like the frame's own, so its 2D matrices get Smooth
+Aiming through `snp_set_live_reticle`. A full sync redirected in a list the
+game keeps is put back at the next walk.
+
 Not yet tested in game: Assign players with two controllers, the keyboard as
-player 2 (multi-player keyboard bindings start empty in recompinput), and a
-mod's live crosshair (the co-op mod doesn't draw one yet). Player 1's live ID
+player 2 (multi-player keyboard bindings start empty in recompinput), the
+overlay, and a mod's live crosshair (the co-op mod draws both). Player 1's live ID
 changed layout; Smooth Aiming should be checked again with the mouse, the
 stick and touch.
