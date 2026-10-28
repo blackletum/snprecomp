@@ -9,6 +9,7 @@
 - For modders: `snp_get_player_count` and `snp_get_player_pad`, to read each
   player's controller from a mod, and `snp_set_live_reticle`, which gives a
   mod's crosshair Smooth Aiming like player 1's (`include/snp_mod_api.h`).
+- For modders: `recomp_printf`, printing to `mod_log.txt` next to the game.
 
 ## [0.2.7 Beta] - 2026-10-27
 

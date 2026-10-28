@@ -5,11 +5,14 @@
 //   RECOMP_IMPORT("*", u32 snp_get_player_count(void));
 //   RECOMP_IMPORT("*", s32 snp_get_player_pad(s32 player, OSContPad* pad));
 //   RECOMP_IMPORT("*", void snp_set_live_reticle(s32 slot, const SnpLiveReticle* reticle));
+//   RECOMP_IMPORT("*", int recomp_printf(const char* fmt, ...));
 #include <cstdint>
 
 namespace snp {
     // Call before recomp::start(), so they're there when mods load.
     void register_mod_exports();
+    // recomp_printf (src/main/mod_printf.cpp), from register_mod_exports.
+    void register_printf_export();
 
     // Smooth Aiming for mods' crosshairs. The display list walker: the live
     // ID for a 2D matrix drawn at (x, y), if it's a mod's crosshair, else 0.

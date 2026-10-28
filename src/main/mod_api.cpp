@@ -194,4 +194,5 @@ void snp::register_mod_exports() {
     recomp::overlays::register_base_export("snp_get_player_count", snp_get_player_count);
     recomp::overlays::register_base_export("snp_get_player_pad", snp_get_player_pad);
     recomp::overlays::register_base_export("snp_set_live_reticle", snp_set_live_reticle);
+    register_printf_export();
 }

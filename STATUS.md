@@ -711,6 +711,14 @@ moves it from the newest position on at its movement for the part of a game
 frame gone by. Only with Smooth Aiming on; a slot stops 0.2 s after the
 mod's last call. Mods' crosshairs get no full-screen lines.
 
+`recomp_printf` for mods (src/main/mod_printf.cpp), the name other recomps'
+mods use: to stdout, and on PC to mod_log.txt in the working directory,
+since Windows release builds have no console. It reads the arguments as an
+o32 variadic call passes them (checked against clang's output for the mod
+template's flags: doubles and 64-bit integers in an aligned pair of slots,
+high word first, past a3 on the caller's stack) and was tested on the host
+with every conversion.
+
 Not yet tested in game: Assign players with two controllers, the keyboard as
 player 2 (multi-player keyboard bindings start empty in recompinput), and a
 mod's live crosshair (the co-op mod doesn't draw one yet). Player 1's live ID
