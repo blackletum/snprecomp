@@ -9,7 +9,7 @@
 #   .\tools\package-windows.ps1 -Version 0.2.1
 #
 # Output: dist\SnPRecompiled-<version>-windows.zip containing the exe,
-# its DLLs, the assets folder (loaded relative to the working directory, which
+# its DLLs (the Visual C++ runtime's too), the assets folder (loaded relative to the working directory, which
 # is the exe's folder when launched from Explorer), README, license, and the
 # third-party license notices (licenses\).
 # Uses its own build folder (build-release) so a Debug dev build is untouched.
@@ -56,6 +56,21 @@ New-Item -ItemType Directory -Path $stage | Out-Null
 foreach ($file in @("SnPRecompiled.exe", "SDL2.dll", "dxil.dll", "dxcompiler.dll")) {
     Copy-Item (Join-Path $BuildDir $file) $stage
 }
+
+# The Visual C++ runtime the exe and DXC's DLLs use (msvcp140, vcruntime140 and the rest), from
+# this Visual Studio's redistributable files. Windows loads them from the exe's folder before the
+# system's, so the game runs on PCs without the runtime or with an older one, which crashes on
+# start with code from a newer compiler. Microsoft allows shipping them with an app this way.
+$redistVersionFile = Join-Path $vsPath "VC\Auxiliary\Build\Microsoft.VCRedistVersion.default.txt"
+if (-not (Test-Path $redistVersionFile)) { throw "Visual C++ redistributable files not found ($redistVersionFile)." }
+$redistVersion = (Get-Content $redistVersionFile -Raw).Trim()
+$crtDir = Get-ChildItem (Join-Path $vsPath "VC\Redist\MSVC\$redistVersion\x64") -Directory -Filter "Microsoft.VC14*.CRT" | Select-Object -First 1
+if (-not $crtDir) { throw "Visual C++ runtime DLLs not found under VC\Redist\MSVC\$redistVersion\x64." }
+$crtDlls = Get-ChildItem $crtDir.FullName -File | Where-Object { $_.Name -like "msvcp140*.dll" -or $_.Name -like "vcruntime140*.dll" }
+if (-not ($crtDlls | Where-Object { $_.Name -eq "msvcp140.dll" })) { throw "msvcp140.dll not found in $($crtDir.FullName)." }
+$crtDlls | Copy-Item -Destination $stage
+Write-Host "Visual C++ runtime $redistVersion included: $(($crtDlls | ForEach-Object { $_.Name }) -join ', ')"
+
 Copy-Item "assets" $stage -Recurse
 Copy-Item "README.md", "CHANGELOG.md", "COPYING" $stage
 

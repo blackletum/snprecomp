@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Windows: the game could crash at start on PCs without the latest Visual C++
+  runtime. The zip now includes it.
+
 ## [0.2.7 Beta] - 2026-10-27
 
 ### Fixed

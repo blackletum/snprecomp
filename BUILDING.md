@@ -106,7 +106,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 Runs from any PowerShell (it sets up Visual Studio's x64 environment
 itself), builds Release in `build-release\` so your normal `build\` is left
 alone, and writes `dist\SnPRecompiled-<version>-windows.zip` with the exe,
-its DLLs, `assets\`, README and licenses. The steps above must be done first.
+its DLLs (with the Visual C++ runtime from your Visual Studio, so players don't
+need it installed), `assets\`, README and licenses. The steps above must be done first.
 
 **Linux** (experimental):
 
