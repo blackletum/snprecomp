@@ -1,0 +1,78 @@
+--- a/recompinput/src/players.cpp
++++ b/recompinput/src/players.cpp
+@@ -160,6 +160,9 @@
+             if (cont_profile_index >= 0) {
+                 profiles::set_input_profile_for_player(i, cont_profile_index, InputDevice::Controller);
+             }
++            // The keyboard isn't theirs: without this they kept reading a keyboard profile (the
++            // single player one, which every player's starts as) along with the keyboard player.
++            profiles::set_input_profile_for_player(i, -1, InputDevice::Keyboard);
+         } else {
+             profiles::set_input_profile_for_player(i, profiles::get_or_create_mp_keyboard_profile_index(i), InputDevice::Keyboard);
+         }
+--- a/recompinput/src/profiles.cpp
++++ b/recompinput/src/profiles.cpp
+@@ -94,24 +94,10 @@
+     }
+ 
+     void profiles::reset_profile_bindings(int profile_index, InputDevice device) {
+-        // multiplayer keyboard profiles just get cleared completely because of overlapping key bindings.
+-        bool is_multiplayer_kb = false;
+-        if (device == InputDevice::Keyboard) {
+-            for (size_t i = 0; i < recompinput::players::get_number_of_assigned_players(); i++) {
+-                if (get_mp_keyboard_profile_index(i) == profile_index) {
+-                    is_multiplayer_kb = true;
+-                    break;
+-                }
+-            }
+-        }
+-
++        // Multiplayer keyboard profiles get the default keys too: only keyboard players read the
++        // keyboard (players.cpp), and there's usually one.
+         for (size_t i = 0; i < recompinput::num_game_inputs; i++) {
+             GameInput input = static_cast<GameInput>(i);
+-            if (is_multiplayer_kb) {
+-                profiles::clear_input_binding(profile_index, input);
+-                continue;
+-            }
+-
+             auto &new_mappings = recompinput::get_default_mapping_for_input(device, input);
+             for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
+                 if (binding_index >= new_mappings.size()) {
+@@ -353,6 +339,17 @@
+         return keyboard_sp_profile_index;
+     }
+ 
++    static bool profile_has_bindings(int profile_index) {
++        for (size_t i = 0; i < recompinput::num_game_inputs; i++) {
++            for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
++                if (profiles::get_input_binding(profile_index, static_cast<GameInput>(i), binding_index).input_type != InputType::None) {
++                    return true;
++                }
++            }
++        }
++        return false;
++    }
++
+     int profiles::get_or_create_mp_keyboard_profile_index(int player_index) {
+         int profile_index = get_mp_keyboard_profile_index(player_index);
+         if (profile_index < 0) {
+@@ -364,6 +361,18 @@
+             );
+             clear_all_mappings(profile_index);
+         }
++
++        // A new (or still empty) multiplayer keyboard profile starts from the single player one,
++        // so a keyboard and mouse player keeps the bindings they set up.
++        if (!profile_has_bindings(profile_index)) {
++            for (size_t i = 0; i < recompinput::num_game_inputs; i++) {
++                GameInput input = static_cast<GameInput>(i);
++                for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
++                    profiles::set_input_binding(profile_index, input, binding_index,
++                        profiles::get_input_binding(keyboard_sp_profile_index, input, binding_index));
++                }
++            }
++        }
+         return profile_index;
+     }
+ 

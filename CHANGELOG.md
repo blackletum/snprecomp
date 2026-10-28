@@ -5,6 +5,10 @@
 ### Fixed
 - Windows: the game could crash at start on PCs without the latest Visual C++
   runtime. The zip now includes it.
+- Local multiplayer: a keyboard and mouse player now starts with your keyboard
+  bindings instead of none, and players on controllers no longer also respond
+  to the keyboard. Reset on a player's keyboard profile restores the default
+  keys.
 
 ## [0.2.7 Beta] - 2026-10-27
 
