@@ -698,5 +698,21 @@ only.
   `snp_get_player_pad`, which fills an OSContPad with the stick in the range
   the game gets.
 
-Not yet tested in game: Assign players with two controllers, and the keyboard
-as player 2 (multi-player keyboard bindings start empty in recompinput).
+Smooth Aiming for a mod's crosshair: player 2's moves at the game's 30 fps
+otherwise, since 2D matrices aren't interpolated. RT64's live offset already
+takes any ID with its tag; only snprecomp assumed one reticle. A live ID now
+holds a slot (2 bits) between the position's x (12 bits) and y (10 bits,
+plenty for the reach of -104 .. 104): slot 0 is player 1's reticle, as
+before, and 1-3 are mods'. Once a game frame a mod calls
+`snp_set_live_reticle` with its crosshair's position, movement per game frame
+and reach. The walker gives a 2D matrix at one of a slot's last four
+positions that slot's ID (after checking player 1's), and RT64's callback
+moves it from the newest position on at its movement for the part of a game
+frame gone by. Only with Smooth Aiming on; a slot stops 0.2 s after the
+mod's last call. Mods' crosshairs get no full-screen lines.
+
+Not yet tested in game: Assign players with two controllers, the keyboard as
+player 2 (multi-player keyboard bindings start empty in recompinput), and a
+mod's live crosshair (the co-op mod doesn't draw one yet). Player 1's live ID
+changed layout; Smooth Aiming should be checked again with the mouse, the
+stick and touch.

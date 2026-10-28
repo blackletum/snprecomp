@@ -13,20 +13,67 @@
 //
 // With Local Multiplayer on, the game still sees port 1 only
 // (src/main/main.cpp), so a mod is the only thing reading the other players.
+//
+// snp_set_live_reticle: Smooth Aiming for a mod's crosshair. Once a game
+// frame, after moving it, the mod gives its position (where it draws it this
+// frame), its movement per game frame and its reach. The display list walker
+// (src/game/display_list.cpp) gives a 2D matrix drawn at one of a slot's last
+// few positions that slot's live ID, and RT64 then moves it on every displayed
+// frame: from the newest position, on at its movement for the part of a game
+// frame gone by (src/main/mouse.cpp's live_offset). Slots 1-3; player 1's
+// reticle is slot 0. A slot stops after 0.2 s without a call, and does
+// nothing with Smooth Aiming off.
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <mutex>
 
 #include "librecomp/helpers.hpp"
 #include "librecomp/overlays.hpp"
 #include "recompinput/players.h"
 #include "recompinput/profiles.h"
 
+#include "snp_config.h"
 #include "snp_mod_api.h"
+#include "snp_mouse.h"
 
 // ultramodern/src/input.cpp, not declared in a header: the stick conversion
 // osContGetReadData uses.
 void convert_to_n64_range(float x, float y, int8_t& stick_x, int8_t& stick_y);
 
 namespace {
+    // A mod's crosshair (snp_set_live_reticle), under live_mutex.
+    struct LiveReticle {
+        bool active = false;
+        std::array<float, 4> x{}, y{}; // its last positions, newest first
+        float velocity_x = 0.0f, velocity_y = 0.0f; // per game frame
+        float reach_x = 0.0f, reach_y = 0.0f;
+        double time = 0.0; // of the newest position, in seconds
+        double period = 1.0 / 30.0; // between the game's frames
+    };
+    constexpr uint32_t live_slots = 4; // 0 is player 1's (src/main/mouse.cpp)
+    std::mutex live_mutex;
+    std::array<LiveReticle, live_slots> live;
+
+    double now_seconds() {
+        using namespace std::chrono;
+        return duration<double>(steady_clock::now().time_since_epoch()).count();
+    }
+
+    float read_float(uint8_t* rdram, gpr addr) {
+        uint32_t bits = (uint32_t)MEM_W(0, addr);
+        float f;
+        std::memcpy(&f, &bits, sizeof(f));
+        return f;
+    }
+
+    bool fresh(const LiveReticle& r, double now) {
+        return r.active && now - r.time <= 0.2;
+    }
+
     uint32_t player_count() {
         if (recompinput::players::is_single_player_mode()) {
             return 1;
@@ -65,7 +112,86 @@ extern "C" void snp_get_player_pad(uint8_t* rdram, recomp_context* ctx) {
     _return(ctx, has_input ? 1 : 0);
 }
 
+// snp_set_live_reticle(s32 slot, const SnpLiveReticle* reticle), with
+// SnpLiveReticle { f32 x, y; f32 velocity_x, velocity_y; f32 reach_x, reach_y; u32 active; }.
+extern "C" void snp_set_live_reticle(uint8_t* rdram, recomp_context* ctx) {
+    int32_t slot = _arg<0, int32_t>(rdram, ctx);
+    PTR(void) reticle = _arg<1, PTR(void)>(rdram, ctx);
+    if (slot < 1 || (uint32_t)slot >= live_slots || reticle == NULLPTR) {
+        return;
+    }
+    gpr addr = (gpr)reticle;
+    const float x = read_float(rdram, addr), y = read_float(rdram, addr + 4);
+    const float vx = read_float(rdram, addr + 8), vy = read_float(rdram, addr + 12);
+    const float reach_x = read_float(rdram, addr + 16), reach_y = read_float(rdram, addr + 20);
+    const bool active = MEM_W(24, addr) != 0;
+    const bool valid = std::isfinite(x) && std::isfinite(y) && std::isfinite(vx) && std::isfinite(vy) &&
+        std::isfinite(reach_x) && std::isfinite(reach_y);
+
+    const double now = now_seconds();
+    std::lock_guard lock(live_mutex);
+    LiveReticle& r = live[slot];
+    const double gap = now - r.time;
+    if (gap > 0.005 && gap < 0.2) {
+        r.period += (gap - r.period) * 0.2;
+    }
+    r.active = active && valid;
+    if (!r.active) {
+        return;
+    }
+    for (size_t i = r.x.size() - 1; i > 0; i--) {
+        r.x[i] = r.x[i - 1];
+        r.y[i] = r.y[i - 1];
+    }
+    r.x[0] = x;
+    r.y[0] = y;
+    r.velocity_x = vx;
+    r.velocity_y = vy;
+    r.reach_x = std::fabs(reach_x);
+    r.reach_y = std::fabs(reach_y);
+    r.time = now;
+}
+
+uint32_t snp::mod_live_reticle_id(float x, float y) {
+    if (!snp::config::get_option(snp::config::Option::SmoothAiming)) {
+        return 0;
+    }
+    const double now = now_seconds();
+    std::lock_guard lock(live_mutex);
+    for (uint32_t slot = 1; slot < live_slots; slot++) {
+        const LiveReticle& r = live[slot];
+        if (!fresh(r, now)) {
+            continue;
+        }
+        for (size_t i = 0; i < r.x.size(); i++) {
+            if (std::fabs(x - r.x[i]) < 1.0f && std::fabs(y - r.y[i]) < 1.0f) {
+                return snp::mouse::live_id(slot, x, y);
+            }
+        }
+    }
+    return 0;
+}
+
+bool snp::mod_live_offset(uint32_t slot, float game_x, float game_y, float* dx, float* dy) {
+    if (slot < 1 || slot >= live_slots) {
+        return false;
+    }
+    const double now = now_seconds();
+    std::lock_guard lock(live_mutex);
+    const LiveReticle& r = live[slot];
+    if (!fresh(r, now)) {
+        return false;
+    }
+    const float part = (float)std::clamp((now - r.time) / r.period, 0.0, 1.0);
+    const float x = std::clamp(r.x[0] + r.velocity_x * part, -r.reach_x, r.reach_x);
+    const float y = std::clamp(r.y[0] + r.velocity_y * part, -r.reach_y, r.reach_y);
+    *dx = x - game_x;
+    *dy = y - game_y;
+    return true;
+}
+
 void snp::register_mod_exports() {
     recomp::overlays::register_base_export("snp_get_player_count", snp_get_player_count);
     recomp::overlays::register_base_export("snp_get_player_pad", snp_get_player_pad);
+    recomp::overlays::register_base_export("snp_set_live_reticle", snp_set_live_reticle);
 }

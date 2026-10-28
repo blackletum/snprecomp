@@ -39,6 +39,7 @@
 #include "recompinput/input_state.h"
 #include "rt64_live_offset.h"
 #include "snp_config.h"
+#include "snp_mod_api.h"
 
 extern SDL_Window* window;
 
@@ -264,23 +265,29 @@ namespace {
         return std::clamp(y, -104.0f, 104.0f);
     }
 
-    // The quarter units a live ID holds each coordinate in (12 bits, signed).
-    uint32_t encode_quarter(float v) {
-        return (uint32_t)std::clamp((int32_t)std::lround(v * 4.0f), -2048, 2047) & 0xFFF;
+    // A coordinate in quarter units, signed, in the given number of bits.
+    uint32_t encode_quarter(float v, int bits) {
+        const int32_t half = 1 << (bits - 1);
+        return (uint32_t)std::clamp((int32_t)std::lround(v * 4.0f), -half, half - 1) & ((1u << bits) - 1);
     }
 
-    float decode_quarter(uint32_t bits) {
-        int32_t v = (int32_t)(bits & 0xFFF);
-        return (v >= 2048 ? v - 4096 : v) / 4.0f;
+    float decode_quarter(uint32_t v, int bits) {
+        const int32_t half = 1 << (bits - 1);
+        int32_t q = (int32_t)(v & ((1u << bits) - 1));
+        return (q >= half ? q - 2 * half : q) / 4.0f;
     }
 
     // RT64's live offset callback (any thread): where the latest input puts
     // the reticle, from where the game drew it (the ID's position).
     bool live_offset(uint32_t id, float* dx, float* dy) {
-        const float game_x = decode_quarter(id >> 12);
-        const float game_y = decode_quarter(id);
+        uint32_t slot;
+        float game_x, game_y;
+        snp::mouse::decode_live_id(id, slot, game_x, game_y);
         if (std::fabs(game_x) > 160.0f * snp::get_widescreen_scale() || std::fabs(game_y) > 105.0f) {
             return false; // not where the reticle can be
+        }
+        if (slot != 0) {
+            return snp::mod_live_offset(slot, game_x, game_y, dx, dy); // a mod's (src/main/mod_api.cpp)
         }
         const snp::config::MouseAim aim = snp::config::get_mouse_aim();
         const float sensitivity = snp::config::get_mouse_sensitivity();
@@ -348,7 +355,17 @@ uint32_t snp::mouse::live_reticle_id(uint8_t* rdram, float& x, float& y) {
     if (!std::isfinite(x) || !std::isfinite(y)) {
         return 0;
     }
-    return RT64::LiveOffsetIdTag | (encode_quarter(x) << 12) | encode_quarter(y);
+    return snp::mouse::live_id(0, x, y);
+}
+
+uint32_t snp::mouse::live_id(uint32_t slot, float x, float y) {
+    return RT64::LiveOffsetIdTag | (encode_quarter(x, 12) << 12) | ((slot & 3) << 10) | encode_quarter(y, 10);
+}
+
+void snp::mouse::decode_live_id(uint32_t id, uint32_t& slot, float& x, float& y) {
+    x = decode_quarter(id >> 12, 12);
+    slot = (id >> 10) & 3;
+    y = decode_quarter(id, 10);
 }
 
 // func_800AB924, before the reticle's velocity is added: the reticle struct.

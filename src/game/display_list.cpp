@@ -21,6 +21,7 @@
 #include "recomp.h"
 
 #include "snp_config.h"
+#include "snp_mod_api.h"
 #include "snp_mouse.h"
 #include "snp_recomp_hooks.h"
 
@@ -742,6 +743,10 @@ namespace {
             const float (&row)[4] = modelview[modelview_top].m[3];
             if (live_id != 0 && std::fabs(row[0] - live_x) < 1.0f && std::fabs(row[1] - live_y) < 1.0f) {
                 id = live_id;
+            }
+            // A mod's crosshair (src/main/mod_api.cpp).
+            else if (uint32_t mod_id = snp_in_front_end_menus() ? 0 : snp::mod_live_reticle_id(row[0], row[1])) {
+                id = mod_id;
             }
         }
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
