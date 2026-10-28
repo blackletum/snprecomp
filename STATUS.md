@@ -677,3 +677,26 @@ Also found on the way (each harmless when it isn't the cause):
 lookups by outcome and how each kind of object with more than one drawn was
 numbered (on Android, the debug.snp.interplog property or a file
 snp-interp-log in the app's storage).
+
+## Round 10: a second player for mods
+
+For the co-op mod (wootbeer/snprecomp-mod-coop): player 2 flies a small drone
+with their own crosshair, alongside player 1. The game's own 2-player mode is
+different (player 2 aims and shoots for player 1's character), and it starts
+when a second controller is plugged in, so the game must keep seeing port 1
+only.
+
+- Local Multiplayer (Mods), a General tab option read at startup, puts
+  recompinput in multi-player mode for two players: each picks a controller
+  or the keyboard with Assign players, and player 1's no longer drives
+  anything else.
+- Ports 2-4 stay unplugged in the game's controller status as before, and
+  in multi-player mode they don't answer reads either (`get_n64_input`,
+  src/main/main.cpp), so player 2 can't reach the game.
+- Mods read the players through two exports (src/main/mod_api.cpp,
+  `RECOMP_IMPORT("*", ...)`): `snp_get_player_count` and
+  `snp_get_player_pad`, which fills an OSContPad with the stick in the range
+  the game gets.
+
+Not yet tested in game: Assign players with two controllers, and the keyboard
+as player 2 (multi-player keyboard bindings start empty in recompinput).

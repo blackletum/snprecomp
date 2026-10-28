@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Local Multiplayer (Mods) on the General tab: player 2 gets their own
+  controller (Controls → Assign players) for mods that add a second player,
+  like the co-op mod. The game itself stays one player.
+- For modders: `snp_get_player_count` and `snp_get_player_pad`, to read each
+  player's controller from a mod (`include/snp_mod_api.h`).
+
 ## [0.2.7 Beta] - 2026-10-27
 
 ### Fixed
