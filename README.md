@@ -108,6 +108,10 @@ kinds of pack replace the same texture, the RT64 one is used.
 On Android, Rice packs can't be installed yet (the app's folder can't be
 opened from a file manager).
 
+## Mods
+Install mods from the Mods tab. To make your own, start from the
+[mod template](https://github.com/wootbeer/snprecomp-mod-template).
+
 ## Issues and Limitations
 
 Known:
