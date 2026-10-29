@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+- Local Multiplayer (Mods) on the General tab: player 2 gets their own
+  controller (Controls → Assign players) for mods that add a second player,
+  like the co-op mod. The game itself stays one player.
+- For modders: `snp_get_player_count` and `snp_get_player_pad`, to read each
+  player's controller from a mod, and `snp_set_live_reticle`, which gives a
+  mod's crosshair Smooth Aiming like player 1's (`include/snp_mod_api.h`).
+- For modders: `recomp_printf`, printing to `mod_log.txt` next to the game.
+- For modders: `snp_draw_overlay`, to draw from a mod after the HUD, with the
+  mod's own memory reachable (RT64's extended RDRAM).
+
 ### Fixed
 - Windows: the game could crash at start on PCs without the latest Visual C++
   runtime. The zip now includes it.

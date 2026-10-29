@@ -21,6 +21,7 @@
 #include "recomp.h"
 
 #include "snp_config.h"
+#include "snp_mod_api.h"
 #include "snp_mouse.h"
 #include "snp_recomp_hooks.h"
 
@@ -208,6 +209,43 @@ namespace {
             { (G_FILLRECT << 24) | xy(319, 7), xy(0, 0) },
             { (G_FILLRECT << 24) | xy(319, 239), xy(0, 232) },
             { 0xE9000000, 0 }, // the game's full sync, moved after the fills
+            { 0xDF000000, 0 },
+        };
+        uint32_t addr = suffix;
+        for (const auto& c : commands) {
+            set_command(rdram, addr, c[0], c[1]);
+            addr += 8;
+        }
+        set_command(rdram, fullsync_addr, 0xDE010000, suffix);
+    }
+
+    // Mods' overlays (snp_draw_overlay, src/main/mod_api.cpp): a display list
+    // a mod gives for the end of each frame in play, after the HUD. The
+    // frame's full sync becomes a branch to a suffix: gEXEnable, extended RDRAM
+    // on (mods live past the N64's 8 MB, from 0x81000000), a call to the mod's
+    // list, extended RDRAM off, then the full sync. Only in frames that loaded
+    // the HUD's 2D projection, outside the front end's menus. The mod's list is
+    // walked like the frame's own, so its 2D matrices can get a live ID
+    // (snp_set_live_reticle).
+    constexpr uint32_t overlay_area = 0x807FA000;
+    constexpr uint32_t overlay_slots = 8;
+    constexpr uint32_t overlay_bytes = 6 * 8;
+    uint32_t overlay_slot = 0;
+    bool hud_seen = false; // this frame loaded the HUD's 2D projection
+
+    bool in_overlay_area(uint32_t addr) {
+        return addr >= overlay_area && addr < overlay_area + overlay_slots * overlay_bytes;
+    }
+
+    void add_overlay(uint8_t* rdram, uint32_t fullsync_addr, uint32_t list) {
+        uint32_t suffix = overlay_area + overlay_slot * overlay_bytes;
+        overlay_slot = (overlay_slot + 1) % overlay_slots;
+        const uint32_t commands[][2] = {
+            { 0xE0525464, 0x10000064 }, // gEXEnable
+            { 0x6400002C, 1 }, // gEXSetRDRAMExtended(1)
+            { 0xDE000000, list }, // the mod's list
+            { 0x6400002C, 0 }, // gEXSetRDRAMExtended(0)
+            { 0xE9000000, 0 }, // the game's full sync, moved after it
             { 0xDF000000, 0 },
         };
         uint32_t addr = suffix;
@@ -743,6 +781,10 @@ namespace {
             if (live_id != 0 && std::fabs(row[0] - live_x) < 1.0f && std::fabs(row[1] - live_y) < 1.0f) {
                 id = live_id;
             }
+            // A mod's crosshair (src/main/mod_api.cpp).
+            else if (uint32_t mod_id = snp_in_front_end_menus() ? 0 : snp::mod_live_reticle_id(row[0], row[1])) {
+                id = mod_id;
+            }
         }
         uint32_t entry = interp_area + interp_bank * interp_bank_bytes + interp_entry * interp_entry_bytes;
         const uint32_t commands[5][2] = {
@@ -1202,6 +1244,12 @@ namespace {
                 w1 = (uint32_t)MEM_W(live_kept_command + 4, (gpr)(int32_t)w1);
                 set_command(rdram, addr, w0, w1);
             }
+            if ((w0 >> 24) == 0xDE && in_overlay_area(w1)) {
+                // A full sync turned into a mod's overlay in an earlier frame (a
+                // list the game keeps): the full sync again, and the overlay
+                // added again below if it's still wanted.
+                set_command(rdram, addr, w0 = 0xE9000000, w1 = 0);
+            }
             if ((w0 >> 24) == 0xDE && in_interp_area(w1)) {
                 // A matrix load tagged in an earlier frame (a list the game
                 // keeps): back to the game's command, tagged again below.
@@ -1363,6 +1411,16 @@ namespace {
                         black_edge_rows(rdram, addr);
                         return;
                     }
+                    if (top && hud_seen && !front_end && !in_overlay_area(addr)) {
+                        uint32_t list = snp::mod_overlay_list();
+                        if (list != 0) {
+                            add_overlay(rdram, addr, list);
+                            if (depth < 10) {
+                                walk(rdram, list, depth + 1, widen, false);
+                            }
+                            return;
+                        }
+                    }
                     break;
                 case 0xED: // G_SETSCISSOR
                     if (w0 == effect_scissor_w0 && w1 == effect_scissor_w1) {
@@ -1392,6 +1450,7 @@ namespace {
                 case 0xDA: // G_MTX
                     if ((((w0 & 0xFF) ^ 1) & 4) != 0) { // projection
                         in_hud = (w1 == hud_projection);
+                        hud_seen = hud_seen || in_hud;
                     }
                     else { // modelview
                         modelview_load(rdram, w0, w1);
@@ -1459,6 +1518,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     fog_color = 0;
     first_fog_color = 0;
     in_hud = false;
+    hud_seen = false;
     front_end = snp_in_front_end_menus();
     hud_bank = (hud_bank + 1) % hud_banks;
     blur_bank = (blur_bank + 1) % blur_banks;

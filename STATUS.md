@@ -677,3 +677,63 @@ Also found on the way (each harmless when it isn't the cause):
 lookups by outcome and how each kind of object with more than one drawn was
 numbered (on Android, the debug.snp.interplog property or a file
 snp-interp-log in the app's storage).
+
+## Round 10: a second player for mods
+
+For the co-op mod (wootbeer/snprecomp-mod-coop): player 2 flies a small drone
+with their own crosshair, alongside player 1. The game's own 2-player mode is
+different (player 2 aims and shoots for player 1's character), and it starts
+when a second controller is plugged in, so the game must keep seeing port 1
+only.
+
+- Local Multiplayer (Mods), a General tab option read at startup, puts
+  recompinput in multi-player mode for two players: each picks a controller
+  or the keyboard with Assign players, and player 1's no longer drives
+  anything else.
+- Ports 2-4 stay unplugged in the game's controller status as before, and
+  in multi-player mode they don't answer reads either (`get_n64_input`,
+  src/main/main.cpp), so player 2 can't reach the game.
+- Mods read the players through two exports (src/main/mod_api.cpp,
+  `RECOMP_IMPORT("*", ...)`): `snp_get_player_count` and
+  `snp_get_player_pad`, which fills an OSContPad with the stick in the range
+  the game gets.
+
+Smooth Aiming for a mod's crosshair: player 2's moves at the game's 30 fps
+otherwise, since 2D matrices aren't interpolated. RT64's live offset already
+takes any ID with its tag; only snprecomp assumed one reticle. A live ID now
+holds a slot (2 bits) between the position's x (12 bits) and y (10 bits,
+plenty for the reach of -104 .. 104): slot 0 is player 1's reticle, as
+before, and 1-3 are mods'. Once a game frame a mod calls
+`snp_set_live_reticle` with its crosshair's position, movement per game frame
+and reach. The walker gives a 2D matrix at one of a slot's last four
+positions that slot's ID (after checking player 1's), and RT64's callback
+moves it from the newest position on at its movement for the part of a game
+frame gone by. Only with Smooth Aiming on; a slot stops 0.2 s after the
+mod's last call. Mods' crosshairs get no full-screen lines.
+
+`recomp_printf` for mods (src/main/mod_printf.cpp), the name other recomps'
+mods use: to stdout, and on PC to mod_log.txt in the working directory,
+since Windows release builds have no console. It reads the arguments as an
+o32 variadic call passes them (checked against clang's output for the mod
+template's flags: doubles and 64-bit integers in an aligned pair of slots,
+high word first, past a3 on the caller's stack) and was tested on the host
+with every conversion.
+
+An overlay for mods (`snp_draw_overlay`): a display list a mod gives once a
+game frame, drawn at the end of each frame in play, after the HUD. Mods are
+loaded from 0x81000000, past the N64's 8 MB, where an N64 address wraps back
+to the start of RAM; RT64's extended RDRAM (`gEXSetRDRAMExtended`) takes
+0x8xxxxxxx addresses as offsets into all of it instead. So the walker turns
+the frame's full sync into a branch to a suffix (0x807FA000, 8 slots used in
+turn): gEXEnable, extended RDRAM on, a call to the mod's list, extended RDRAM
+off, the full sync. Only in frames that loaded the HUD's 2D projection, outside
+the front end's menus, and only while the mod keeps calling (0.2 s). The
+mod's list is walked like the frame's own, so its 2D matrices get Smooth
+Aiming through `snp_set_live_reticle`. A full sync redirected in a list the
+game keeps is put back at the next walk.
+
+Not yet tested in game: Assign players with two controllers, the keyboard as
+player 2 (multi-player keyboard bindings start empty in recompinput), the
+overlay, and a mod's live crosshair (the co-op mod draws both). Player 1's live ID
+changed layout; Smooth Aiming should be checked again with the mouse, the
+stick and touch.

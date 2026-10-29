@@ -55,6 +55,7 @@
 
 #include "snp_android.h"
 #include "snp_config.h"
+#include "snp_mod_api.h"
 #include "snp_mouse.h"
 
 #if defined(SNP_HAS_APP_ICON)
@@ -347,7 +348,10 @@ static void set_frequency(uint32_t frequency) {
 
 // --- Input ------------------------------------------------------------
 
-// Only port 1 is plugged in for now, and every controller drives it. Saves
+// Only port 1 is plugged in: the game's own 2-player mode (player 2 aims and
+// shoots for player 1) isn't offered. In single-player mode every controller
+// drives port 1; with Local Multiplayer (Mods) on, player 1's controller does,
+// and the other players are read by mods only (src/main/mod_api.cpp). Saves
 // are on the cartridge's EEPROM, so the only pak is the Rumble Pak.
 static ultramodern::input::connected_device_info_t get_connected_device_info(int controller_num) {
     if (controller_num != 0) {
@@ -362,16 +366,22 @@ static ultramodern::input::connected_device_info_t get_connected_device_info(int
     };
 }
 
-#if defined(__ANDROID__)
-// Player 1 also gets the on-screen touch controls, unless one of the game's menus has the input.
-static bool get_n64_input_with_touch(int player_index, uint16_t* buttons_out, float* x_out, float* y_out) {
+// The game's controller reads. With Local Multiplayer on, ports 2-4 don't
+// answer, so the game never sees the other players even where it reads a port
+// it was told is empty. On Android player 1 also gets the on-screen touch
+// controls, unless one of the game's menus has the input.
+static bool get_n64_input(int player_index, uint16_t* buttons_out, float* x_out, float* y_out) {
+    if (player_index != 0 && !recompinput::players::is_single_player_mode()) {
+        return false;
+    }
     const bool got = recompinput::profiles::get_n64_input(player_index, buttons_out, x_out, y_out);
+#if defined(__ANDROID__)
     if ((player_index == 0) && !recompinput::game_input_disabled()) {
         snp::android::add_touch_input(buttons_out);
     }
+#endif
     return got;
 }
-#endif
 
 // --- Misc callbacks -----------------------------------------------------
 
@@ -538,6 +548,14 @@ int main(int argc, char** argv) {
     recompui::config::finalize();
     snp::add_mouse_button_bindings();
 
+    // Local Multiplayer (Mods), from the just-loaded config; changes apply on
+    // the next launch. Two players: no mod uses more yet.
+    if (snp::config::get_local_multiplayer()) {
+        recompinput::players::set_player_count_range(1, 2);
+        recompinput::players::set_single_player_mode(false);
+    }
+    snp::register_mod_exports();
+
     // Rice Video texture packs (an emulator's hires_texture folder) go in
     // texture_packs; RT64 packs are mods and take priority over them.
     snp::config::apply_texture_packs();
@@ -568,11 +586,7 @@ int main(int argc, char** argv) {
 
     ultramodern::input::callbacks_t input_callbacks{
         .poll_input = recompinput::poll_inputs,
-#if defined(__ANDROID__)
-        .get_input = get_n64_input_with_touch,
-#else
-        .get_input = recompinput::profiles::get_n64_input,
-#endif
+        .get_input = get_n64_input,
         .set_rumble = recompinput::set_rumble,
         .get_connected_device_info = get_connected_device_info,
     };

@@ -10,6 +10,7 @@ namespace {
     const std::string rumble_pak_id = "rumble_pak";
     const std::string mouse_aim_id = "mouse_aim";
     const std::string mouse_sensitivity_id = "mouse_sensitivity_relative";
+    const std::string local_multiplayer_id = "local_multiplayer";
 
     const std::vector<recomp::config::ConfigOptionEnumOption> mouse_aim_options = {
         {0, "Off", "Off"},
@@ -59,6 +60,19 @@ void snp::config::add_general_options(recomp::config::Config& general) {
         50.0
     );
 
+    // Read once at startup (src/main/main.cpp).
+    general.add_bool_option(
+        local_multiplayer_id,
+        "Local Multiplayer (Mods)",
+        "Gives player 2 their own controller, for mods that add a second player (like the "
+        "co-op mod). The game itself stays one player: without such a mod, player 2's "
+        "controller does nothing."
+        "<br/><br/>"
+        "<b>Restart the game after changing this.</b> Then open the Controls tab and use "
+        "<b>Assign players</b> to choose each player's controller or keyboard.",
+        false
+    );
+
     // Set once the mouse buttons were added to saved keyboard bindings
     // (src/main/input_defaults.cpp).
     general.add_bool_option("mouse_buttons_bound", "", "", false, true);
@@ -82,6 +96,13 @@ float snp::config::get_mouse_sensitivity() {
         return 50.0f;
     }
     return (float)std::get<double>(recompui::config::get_general_config().get_option_value(mouse_sensitivity_id));
+}
+
+bool snp::config::get_local_multiplayer() {
+    if (!options_added) {
+        return false;
+    }
+    return std::get<bool>(recompui::config::get_general_config().get_option_value(local_multiplayer_id));
 }
 
 bool snp::config::get_rumble_pak() {

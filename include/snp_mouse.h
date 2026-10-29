@@ -26,6 +26,12 @@ namespace snp::mouse {
     // Smooth Aiming: the RT64 live offset ID for the reticle this frame, with
     // its position (x, y: offset from the screen centre, y up), or 0.
     uint32_t live_reticle_id(uint8_t* rdram, float& x, float& y);
+
+    // A crosshair's live ID: RT64's tag, then where it was drawn (x in 12
+    // bits, y in 10, in quarter units) and its slot (2 bits): 0 is player 1's
+    // reticle, 1-3 mods' crosshairs (src/main/mod_api.cpp).
+    uint32_t live_id(uint32_t slot, float x, float y);
+    void decode_live_id(uint32_t id, uint32_t& slot, float& x, float& y);
 }
 
 #endif
