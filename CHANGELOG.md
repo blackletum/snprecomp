@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.8 Beta] - 2026-10-31
 
 ### Added
 - Local Multiplayer (Mods) on the General tab: player 2 gets their own

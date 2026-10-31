@@ -398,3 +398,5 @@ scalar block layout) needing only Shader and Sampled1D, and the C++ gives the sa
 Python prototype. To confirm on the device: the log's descriptor indexing line, and whether the
 picture appears.
 
+Released in 0.2.8 (versionCode 6) with the co-op mod API, the multiplayer keyboard fix and the
+Windows zip's Visual C++ runtime; the Mali user's result is still to come.
