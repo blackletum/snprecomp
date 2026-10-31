@@ -24,6 +24,13 @@
 // reticle is slot 0. A slot stops after 0.2 s without a call, and does
 // nothing with Smooth Aiming off.
 //
+// snp_get_scene_projection: the scene's projection matrix (an Mtx, 0x807FA200)
+// as of the latest frame in play: copied by the display list walker from the
+// projection that was loaded when the HUD's replaced it. An overlay that loads
+// it as its projection draws in the scene's 3D view; with the camera's view
+// matrix (the game's float matrix at 0x80067CD0) in its modelview, at world
+// positions. 0 when no frame in play drew one in the last 0.2 s.
+//
 // snp_draw_overlay: a display list the mod wants drawn at the end of each
 // frame in play, after the HUD (src/game/display_list.cpp). It's called with
 // extended RDRAM on, so it and everything it points to can be in the mod's
@@ -82,6 +89,10 @@ namespace {
     bool fresh(const LiveReticle& r, double now) {
         return r.active && now - r.time <= 0.2;
     }
+
+    // The scene projection's copy (snp_get_scene_projection), under live_mutex.
+    uint32_t scene_projection = 0;
+    double scene_projection_time = 0.0;
 
     // The mod's overlay list (snp_draw_overlay), under live_mutex.
     uint32_t overlay_list = 0;
@@ -219,10 +230,25 @@ uint32_t snp::mod_overlay_list() {
     return overlay_list;
 }
 
+void snp::scene_projection_copied(uint32_t copy) {
+    std::lock_guard lock(live_mutex);
+    scene_projection = copy;
+    scene_projection_time = now_seconds();
+}
+
+// snp_get_scene_projection(void)
+extern "C" void snp_get_scene_projection(uint8_t* rdram, recomp_context* ctx) {
+    (void)rdram;
+    std::lock_guard lock(live_mutex);
+    const bool fresh_copy = scene_projection != 0 && now_seconds() - scene_projection_time <= 0.2;
+    _return(ctx, fresh_copy ? scene_projection : 0u);
+}
+
 void snp::register_mod_exports() {
     recomp::overlays::register_base_export("snp_get_player_count", snp_get_player_count);
     recomp::overlays::register_base_export("snp_get_player_pad", snp_get_player_pad);
     recomp::overlays::register_base_export("snp_set_live_reticle", snp_set_live_reticle);
     recomp::overlays::register_base_export("snp_draw_overlay", snp_draw_overlay);
+    recomp::overlays::register_base_export("snp_get_scene_projection", snp_get_scene_projection);
     register_printf_export();
 }

@@ -233,6 +233,19 @@ namespace {
     uint32_t overlay_slot = 0;
     bool hud_seen = false; // this frame loaded the HUD's 2D projection
 
+    // The scene's projection for mods (snp_get_scene_projection): a copy of the
+    // projection that was loaded when the HUD's 2D projection replaced it,
+    // made at each walk, so a mod's overlay can draw in the scene's 3D view.
+    constexpr uint32_t scene_projection_copy = 0x807FA200;
+    uint32_t last_projection = 0; // this frame's latest projection other than the HUD's
+
+    void copy_scene_projection(uint8_t* rdram, uint32_t projection) {
+        for (uint32_t i = 0; i < 16; i++) {
+            MEM_W(i * 4, (gpr)(int32_t)scene_projection_copy) = MEM_W(i * 4, (gpr)(int32_t)projection);
+        }
+        snp::scene_projection_copied(scene_projection_copy);
+    }
+
     bool in_overlay_area(uint32_t addr) {
         return addr >= overlay_area && addr < overlay_area + overlay_slots * overlay_bytes;
     }
@@ -1450,6 +1463,12 @@ namespace {
                 case 0xDA: // G_MTX
                     if ((((w0 & 0xFF) ^ 1) & 4) != 0) { // projection
                         in_hud = (w1 == hud_projection);
+                        if (in_hud && !hud_seen && last_projection != 0) {
+                            copy_scene_projection(rdram, last_projection);
+                        }
+                        else if (!in_hud) {
+                            last_projection = resolve(w1);
+                        }
                         hud_seen = hud_seen || in_hud;
                     }
                     else { // modelview
@@ -1519,6 +1538,7 @@ extern "C" void snp_display_list_hook(uint8_t* rdram, int32_t task) {
     first_fog_color = 0;
     in_hud = false;
     hud_seen = false;
+    last_projection = 0;
     front_end = snp_in_front_end_menus();
     hud_bank = (hud_bank + 1) % hud_banks;
     blur_bank = (blur_bank + 1) % blur_banks;

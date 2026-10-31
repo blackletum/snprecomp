@@ -732,6 +732,13 @@ mod's list is walked like the frame's own, so its 2D matrices get Smooth
 Aiming through `snp_set_live_reticle`. A full sync redirected in a list the
 game keeps is put back at the next walk.
 
+The scene's projection for mods (`snp_get_scene_projection`): the walker
+copies the projection that was loaded when the HUD's 2D projection replaced
+it to 0x807FA200 each frame in play. A mod's overlay can load it and draw in
+the scene's 3D view, with the camera's view matrix (the float matrix at
+0x80067CD0, round 8) in its modelview. For the co-op mod's drone: the end of
+the frame keeps the scene's depth buffer, so it can be depth-tested too.
+
 Not yet tested in game: Assign players with two controllers, the keyboard as
 player 2 (multi-player keyboard bindings start empty in recompinput), the
 overlay, and a mod's live crosshair (the co-op mod draws both). Player 1's live ID

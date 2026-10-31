@@ -12,6 +12,8 @@
 - For modders: `recomp_printf`, printing to `mod_log.txt` next to the game.
 - For modders: `snp_draw_overlay`, to draw from a mod after the HUD, with the
   mod's own memory reachable (RT64's extended RDRAM).
+- For modders: `snp_get_scene_projection`, the scene's projection, to draw in
+  3D from the overlay.
 
 ## [0.2.7 Beta] - 2026-10-27
 

@@ -6,6 +6,7 @@
 //   RECOMP_IMPORT("*", s32 snp_get_player_pad(s32 player, OSContPad* pad));
 //   RECOMP_IMPORT("*", void snp_set_live_reticle(s32 slot, const SnpLiveReticle* reticle));
 //   RECOMP_IMPORT("*", void snp_draw_overlay(const void* display_list));
+//   RECOMP_IMPORT("*", const void* snp_get_scene_projection(void));
 //   RECOMP_IMPORT("*", int recomp_printf(const char* fmt, ...));
 #include <cstdint>
 
@@ -23,6 +24,8 @@ namespace snp {
     // The display list walker: the mod's overlay list for this frame
     // (snp_draw_overlay), or 0.
     uint32_t mod_overlay_list();
+    // The display list walker: it copied the scene's projection to copy.
+    void scene_projection_copied(uint32_t copy);
 }
 
 #endif
