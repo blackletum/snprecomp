@@ -1,0 +1,23 @@
+--- a/plume_d3d12.cpp
++++ b/plume_d3d12.cpp
+@@ -2782,7 +2782,19 @@
+         }
+ 
+         void *outputData = nullptr;
+-        d3d->Map(subresource, (readRange != nullptr) ? &range : nullptr, &outputData);
++        HRESULT res = d3d->Map(subresource, (readRange != nullptr) ? &range : nullptr, &outputData);
++        if (FAILED(res)) {
++            // Usually the device was removed (a driver fault or timeout): say why, once.
++            static bool reported = false;
++            if (!reported) {
++                const HRESULT removedReason = device->d3d->GetDeviceRemovedReason();
++                fprintf(stderr, "ID3D12Resource::Map failed with error code 0x%lX (device removed reason 0x%lX).\n", (unsigned long)res, (unsigned long)removedReason);
++                reported = true;
++            }
++
++            return nullptr;
++        }
++
+         return outputData;
+     }
+ 

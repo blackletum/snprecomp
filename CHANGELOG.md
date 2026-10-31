@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Windows: Graphics API on the Graphics tab (Auto, D3D12 or Vulkan). Try
+  Vulkan if the game crashes or shows nothing with D3D12; it takes effect
+  when the game restarts.
+
+### Changed
+- Crash reports name the GPU, its driver and the graphics API in use.
+
+### Fixed
+- Windows: when the graphics card's D3D12 driver fails, the game no longer
+  crashes on its next buffer upload, and the log says why the driver failed.
+
 ## [0.2.8 Beta] - 2026-10-31
 
 ### Added

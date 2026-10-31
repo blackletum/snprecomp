@@ -1,6 +1,7 @@
 // Crash reporting. On a fatal exception, writes crash_log.txt to the working
 // directory (the exe's folder when launched from Explorer) and stderr:
 // - the exception and its offset in the exe (as Event Viewer reports it)
+// - the GPU, its driver and the graphics API (RT64's device summary)
 // - the recompiled game function that faulted, by N64 address
 // - for memory faults, the N64 address being accessed
 // - a best-effort list of game functions found on the host stack (callers)
@@ -27,6 +28,7 @@
 #endif
 
 #include "recomp.h"
+#include "rt64_device_summary.h"
 #include "librecomp/sections.h"
 
 namespace {
@@ -104,6 +106,9 @@ namespace {
         const bool write = fault.write;
         fprintf(out, "Sin and Punishment Recompiled crashed.\n");
         fprintf(out, "Exception: %s (code 0x%08X)\n", fault.what, fault.code);
+        if (RT64::getDeviceSummary()[0] != '\0') {
+            fprintf(out, "GPU: %s\n", RT64::getDeviceSummary());
+        }
         if (fault.detail[0] != '\0') {
             fprintf(out, "Details: %s\n", fault.detail);
         }
@@ -468,6 +473,9 @@ void snp_report_fatal_error(const char* message) {
         }
         fprintf(out, "Sin and Punishment Recompiled crashed.\n");
         fprintf(out, "Error: %s\n", message);
+        if (RT64::getDeviceSummary()[0] != '\0') {
+            fprintf(out, "GPU: %s\n", RT64::getDeviceSummary());
+        }
         fflush(out);
         if (out != stderr) {
             fclose(out);

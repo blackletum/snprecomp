@@ -1,0 +1,92 @@
+--- a/src/hle/rt64_application.cpp
++++ b/src/hle/rt64_application.cpp
+@@ -4,8 +4,10 @@
+ 
+ #include "rt64_application.h"
+ #include "rhi/rt64_render_hooks.h"
++#include "render/rt64_device_summary.h"
+ 
+ #include <cinttypes>
++#include <cstdio>
+ #include <filesystem>
+ 
+ #include "common/rt64_dynamic_libraries.h"
+@@ -30,6 +32,16 @@
+ }
+ 
+ namespace RT64 {
++    static char deviceSummary[256] = "";
++
++    static void setDeviceSummary(const char *name, uint64_t driverVersion, const char *apiName) {
++        snprintf(deviceSummary, sizeof(deviceSummary), "%s, driver 0x%" PRIx64 ", %s", name, driverVersion, apiName);
++    }
++
++    const char *getDeviceSummary() {
++        return deviceSummary;
++    }
++
+     // Constants
+ 
+     static std::unique_ptr<RenderInterface> CreateVulkanInterfaceWrapper(RenderWindow renderWindow) {
+@@ -288,6 +300,26 @@
+             deviceDescription = device->getDescription();
+         }
+ 
++        // For crash reports (rt64_device_summary.h).
++        {
++            const char *apiName = "unknown API";
++            switch (chosenGraphicsAPI) {
++            case UserConfiguration::GraphicsAPI::D3D12:
++                apiName = "D3D12";
++                break;
++            case UserConfiguration::GraphicsAPI::Vulkan:
++                apiName = "Vulkan";
++                break;
++            case UserConfiguration::GraphicsAPI::Metal:
++                apiName = "Metal";
++                break;
++            default:
++                break;
++            }
++
++            setDeviceSummary(deviceDescription.name.c_str(), deviceDescription.driverVersion, apiName);
++        }
++
+         // Detect if the application should use HDR framebuffers or not.
+         bool usesHDR;
+         switch (userConfig.internalColorFormat) {
+--- a/src/render/rt64_buffer_uploader.cpp
++++ b/src/render/rt64_buffer_uploader.cpp
+@@ -75,6 +75,18 @@
+         const size_t srcSize = (upload.srcDataIndexRange.second - upload.srcDataIndexRange.first) * upload.srcDataStride;
+         const RenderRange writtenRange(srcOffset, srcOffset + srcSize);
+         uint8_t *dstData = static_cast<uint8_t *>(upload.dstPair->uploadBuffer->map());
++        if (dstData == nullptr) {
++            // The driver couldn't map the buffer, which happens once the graphics device is lost (the
++            // backend logs why). Skip the upload rather than write through a null pointer.
++            static bool reported = false;
++            if (!reported) {
++                fprintf(stderr, "[RT64] A buffer upload was skipped: the GPU buffer couldn't be mapped.\n");
++                reported = true;
++            }
++
++            return;
++        }
++
+         memcpy(dstData + srcOffset, static_cast<const uint8_t *>(upload.srcData) + srcOffset, srcSize);
+         upload.dstPair->uploadBuffer->unmap(0, &writtenRange);
+     }
+--- /dev/null
++++ b/src/render/rt64_device_summary.h
+@@ -0,0 +1,11 @@
++//
++// RT64
++//
++
++#pragma once
++
++namespace RT64 {
++    // The GPU, its driver and the graphics API the renderer set up with, as one line (empty
++    // before that), for the host's crash reports. Safe to read from a signal handler.
++    const char *getDeviceSummary();
++};

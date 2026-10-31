@@ -1,0 +1,25 @@
+--- a/recompui/src/config/ui_config_tab_graphics.cpp
++++ b/recompui/src/config/ui_config_tab_graphics.cpp
+@@ -354,13 +354,20 @@
+                 ultramodern::renderer::HUDRatioMode::Clamp16x9
+             );
+ 
++            // Shown on Windows only, where D3D12 and Vulkan are a real choice (Vulkan helps where a
++            // GPU's D3D12 driver fails); elsewhere every option is the same API.
++            #if defined(_WIN32)
++            const bool api_option_hidden = false;
++            #else
++            const bool api_option_hidden = true;
++            #endif
+             config.add_enum_option(
+                 graphics::options::api_option,
+                 "Graphics API",
+-                "Selects the graphics API to use.",
++                "Selects the graphics API to use. <recomp-color primary>Auto</recomp-color> picks D3D12, or Vulkan where a GPU's D3D12 driver is known to have problems. Try <recomp-color primary>Vulkan</recomp-color> if the game crashes or shows nothing with D3D12. Takes effect when the game restarts.",
+                 graphics_api_options,
+                 ultramodern::renderer::GraphicsApi::Auto,
+-                true
++                api_option_hidden
+             );
+ 
+             config.add_enum_option(
