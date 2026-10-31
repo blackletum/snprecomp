@@ -16,6 +16,10 @@
 ### Fixed
 - Windows: the game could crash at start on PCs without the latest Visual C++
   runtime. The zip now includes it.
+- Android: a black screen in play (sound and touch working) on phones whose
+  GPU can't pick textures per pixel, like the Mali-G52: the game's shaders
+  didn't compile there. Textures that change detail level across a surface
+  may look off on those phones.
 - Local multiplayer: a keyboard and mouse player now starts with your keyboard
   bindings instead of none, and players on controllers no longer also respond
   to the keyboard. Reset on a player's keyboard profile restores the default

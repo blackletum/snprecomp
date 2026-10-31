@@ -375,3 +375,26 @@ whose report it would overwrite) and, on Linux and Android, adds the host call s
 program: abort, segfault, and fatal error then abort.
 
 Released in 0.2.7 (versionCode 5); the S24 user's result is still to come.
+
+### Black screen on a Mali-G52 (issue 17, 2026-10-31)
+
+Xiaomi "lancelot" (MT6769T, Mali-G52 MC2, driver 0x8001000), Android 17, 0.2.7: the launcher
+draws, the game plays sound and takes touch, but shows nothing. The log: every game shader
+fails with VK_ERROR_INITIALIZATION_FAILED (all 8 ubershader pipelines, the 54 saved
+specialized ones and each new one); none of the shader library's pipelines fails. Of all
+RT64's shaders, only the raster pixel shaders (TextureSampler.hlsli, `NonUniformResourceIndex`
+on the texture arrays) declare ShaderNonUniform / SampledImageArrayNonUniformIndexing, which
+need the device feature shaderSampledImageArrayNonUniformIndexing; plume enabled descriptor
+indexing without checking it. (Scalar block layout, the other thing raster shaders need, is
+also needed by RSPProcessCS, which compiled there, so it's supported.)
+
+plume 0008: logs the descriptor indexing features at start ("Vulkan descriptor indexing: ...
+non-uniform sampled images 0/1"), and without non-uniform sampled image indexing drops
+NonUniform decorations and the *NonUniform* capabilities from every shader module. Indices
+that are the same across a draw (the usual case) sample correctly; with N64 LOD a pixel can pick
+another tile, whose texture index then isn't uniform, so mip-mapped surfaces may sample the
+wrong texture in places. Checked: the stripped raster pixel shaders pass spirv-val (Vulkan 1.0,
+scalar block layout) needing only Shader and Sampled1D, and the C++ gives the same bytes as a
+Python prototype. To confirm on the device: the log's descriptor indexing line, and whether the
+picture appears.
+

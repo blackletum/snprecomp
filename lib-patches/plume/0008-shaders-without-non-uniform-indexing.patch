@@ -1,0 +1,96 @@
+--- a/plume_vulkan.h
++++ b/plume_vulkan.h
+@@ -423,6 +423,9 @@
+         std::unique_ptr<RenderBuffer> nullBuffer;
+         bool loadStoreOpNoneSupported = false;
+         bool nullDescriptorSupported = false;
++        // False on drivers without shaderSampledImageArrayNonUniformIndexing (Mali-G52): shaders then
++        // lose their NonUniform decorations (VulkanShader).
++        bool nonUniformSampledImageIndexing = true;
+ 
+         VulkanDevice(VulkanInterface *renderInterface, const std::string &preferredDeviceName);
+         ~VulkanDevice() override;
+--- a/plume_vulkan.cpp
++++ b/plume_vulkan.cpp
+@@ -14,6 +14,7 @@
+ #include <atomic>
+ #include <cmath>
+ #include <climits>
++#include <vector>
+ #include <unordered_map>
+ 
+ #if DLSS_ENABLED
+@@ -1298,6 +1299,62 @@
+         shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+         shaderInfo.pCode = reinterpret_cast<const uint32_t *>(data);
+         shaderInfo.codeSize = size;
++
++        // Without non-uniform indexing of sampled image arrays, some drivers refuse every shader that
++        // declares it (Mali-G52: RT64's raster shaders). Drop the NonUniform decorations and the
++        // capabilities that come with them: indices uniform across a draw still sample correctly, others
++        // (a level of detail picking another tile per pixel) may not.
++        std::vector<uint32_t> uniformCode;
++        if (!device->nonUniformSampledImageIndexing && (size % sizeof(uint32_t) == 0)) {
++            const uint32_t OpCapability = 17;
++            const uint32_t OpDecorate = 71;
++            const uint32_t OpMemberDecorate = 72;
++            const uint32_t DecorationNonUniform = 5300;
++            const uint32_t CapabilityShaderNonUniform = 5301;
++            const uint32_t CapabilityArrayNonUniformIndexingFirst = 5306; // UniformBufferArrayNonUniformIndexing
++            const uint32_t CapabilityArrayNonUniformIndexingLast = 5312; // StorageTexelBufferArrayNonUniformIndexing
++            const size_t headerWords = 5;
++            const uint32_t *words = reinterpret_cast<const uint32_t *>(data);
++            const size_t wordCount = size / sizeof(uint32_t);
++            bool changed = false;
++            uniformCode.reserve(wordCount);
++            uniformCode.insert(uniformCode.end(), words, words + std::min(wordCount, headerWords));
++            for (size_t i = headerWords; i < wordCount;) {
++                const uint32_t opcode = words[i] & 0xFFFFU;
++                const uint32_t instructionWords = words[i] >> 16U;
++                if ((instructionWords == 0) || ((i + instructionWords) > wordCount)) {
++                    uniformCode.insert(uniformCode.end(), words + i, words + wordCount);
++                    break;
++                }
++
++                bool drop = false;
++                if ((opcode == OpCapability) && (instructionWords == 2)) {
++                    const uint32_t capability = words[i + 1];
++                    drop = (capability == CapabilityShaderNonUniform) || ((capability >= CapabilityArrayNonUniformIndexingFirst) && (capability <= CapabilityArrayNonUniformIndexingLast));
++                }
++                else if ((opcode == OpDecorate) && (instructionWords >= 3)) {
++                    drop = (words[i + 2] == DecorationNonUniform);
++                }
++                else if ((opcode == OpMemberDecorate) && (instructionWords >= 4)) {
++                    drop = (words[i + 3] == DecorationNonUniform);
++                }
++
++                if (drop) {
++                    changed = true;
++                }
++                else {
++                    uniformCode.insert(uniformCode.end(), words + i, words + i + instructionWords);
++                }
++
++                i += instructionWords;
++            }
++
++            if (changed) {
++                shaderInfo.pCode = uniformCode.data();
++                shaderInfo.codeSize = uniformCode.size() * sizeof(uint32_t);
++            }
++        }
++
+         VkResult res = vkCreateShaderModule(device->vk, &shaderInfo, nullptr, &vk);
+         if (res != VK_SUCCESS) {
+             fprintf(stderr, "vkCreateShaderModule failed with error code 0x%X.\n", res);
+@@ -4063,6 +4120,10 @@
+         }
+ 
+         const bool descriptorIndexingSupported = indexingFeatures.descriptorBindingPartiallyBound && indexingFeatures.descriptorBindingVariableDescriptorCount && indexingFeatures.runtimeDescriptorArray;
++        nonUniformSampledImageIndexing = descriptorIndexingSupported && indexingFeatures.shaderSampledImageArrayNonUniformIndexing;
++        fprintf(stderr, "Vulkan descriptor indexing: partially bound %d, variable count %d, runtime array %d, non-uniform sampled images %d%s.\n",
++            indexingFeatures.descriptorBindingPartiallyBound, indexingFeatures.descriptorBindingVariableDescriptorCount, indexingFeatures.runtimeDescriptorArray,
++            indexingFeatures.shaderSampledImageArrayNonUniformIndexing, nonUniformSampledImageIndexing ? "" : " (shaders made uniform)");
+         if (descriptorIndexingSupported) {
+             indexingFeatures.pNext = createDeviceChain;
+             createDeviceChain = &indexingFeatures;
